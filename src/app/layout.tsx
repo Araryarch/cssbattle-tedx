@@ -9,7 +9,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CSSBattle Remix | Ultimate Frontend Challenge",
+  title: "TedxITS Frontend Live Coding",
   description:
     "Remake of the classic CSSBattle with modern tech and premium design.",
 };
@@ -23,7 +23,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${jetbrainsMono.className} antialiased bg-[#050505] text-white selection:bg-primary/30`}>
+      <body
+        className={`${jetbrainsMono.className} antialiased bg-[#050505] text-white selection:bg-primary/30`}
+      >
         <Providers>{children}</Providers>
         <Toaster />
       </body>
