@@ -8,6 +8,7 @@ import {
   integer,
   boolean,
   pgEnum,
+  AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
@@ -25,6 +26,7 @@ export const users = pgTable("user", {
   password: text("password"),
   // peran user, disimpan sebagai enum Postgres user_role
   role: userRoleEnum("role").notNull().default("user"),
+  rank: text("rank").default("8flex"),
 });
 
 export const accounts = pgTable(
@@ -119,3 +121,18 @@ export const contestChallenges = pgTable(
     },
   ]
 );
+
+export const comments = pgTable("comments", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  submissionId: text("submission_id")
+    .notNull()
+    .references(() => submissions.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  parentId: text("parent_id").references((): AnyPgColumn => comments.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

@@ -3,7 +3,7 @@ import Editor, { useMonaco } from "@monaco-editor/react";
 import { RotateCcw, Settings, Type, Moon, Command, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dracula, catppuccinMocha } from "@/lib/editor-themes";
-import { emmetHTML } from "emmet-monaco-es";
+import { emmetHTML, emmetCSS } from "emmet-monaco-es";
 
 interface BattleEditorProps {
   code: string;
@@ -87,17 +87,21 @@ export default function BattleEditor({
   }, [settings.vimMode, editorRef.current, statusNodeRef.current, vimModule]);
 
 
+  // Init Emmet
+  useEffect(() => {
+      if (monaco) {
+          try {
+              const dispose = emmetHTML(monaco);
+              return () => dispose();
+          } catch (e) {
+              console.error("Emmet init failed", e);
+          }
+      }
+  }, [monaco]);
+
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
     
-    // Init Emmet
-    try {
-        emmetHTML(monaco);
-    } catch (e) {
-        // emmet-monaco-es might fail if not loaded correctly or env issues
-        console.error("Emmet init failed", e);
-    }
-
     // Register themes immediately on mount as well
     monaco.editor.defineTheme("dracula", dracula as any);
     monaco.editor.defineTheme("catppuccin-mocha", catppuccinMocha as any);

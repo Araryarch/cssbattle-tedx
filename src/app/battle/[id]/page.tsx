@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import Header from "@/components/Header";
+
 import ScoreModal from "@/components/ScoreModal";
 import BattleSubheader from "@/components/battle/BattleSubheader";
 import BattleEditor from "@/components/battle/BattleEditor";
@@ -20,8 +20,6 @@ export default function BattlePage() {
 
   return (
     <div className="h-screen flex flex-col bg-[#050505] overflow-hidden">
-      <Header />
-
       <BattleSubheader
         id={id}
         challenge={battle.challenge}
@@ -42,21 +40,21 @@ export default function BattlePage() {
         />
 
         <BattleMiddle
-           challengeId={id}
-           previewDoc={battle.previewDoc}
-           targetCode={battle.challenge?.targetCode}
-           stats={battle.stats}
-           lastScore={battle.scoreResult}
-           userStats={battle.userStats}
-           showTarget={battle.showTarget}
+          challengeId={id}
+          previewDoc={battle.previewDoc}
+          targetCode={battle.challenge?.targetCode}
+          stats={battle.stats}
+          lastScore={battle.scoreResult}
+          userStats={battle.userStats}
+          showTarget={battle.showTarget}
         />
 
-        <BattleRight 
-           challenge={battle.challenge}
-           unlockedTips={battle.unlockedTips}
-           onUnlockTip={(idx) =>
-              battle.setUnlockedTips((prev) => [...prev, idx])
-           }
+        <BattleRight
+          challenge={battle.challenge}
+          unlockedTips={battle.unlockedTips}
+          onUnlockTip={(idx) =>
+            battle.setUnlockedTips((prev) => [...prev, idx])
+          }
         />
       </main>
 
@@ -73,7 +71,14 @@ export default function BattlePage() {
       />
 
       {/* Hidden Render Containers for html2canvas */}
-      <div style={{ position: "absolute", top: -9999, left: -9999, visibility: "visible" }}>
+      <div
+        style={{
+          position: "absolute",
+          top: -9999,
+          left: -9999,
+          visibility: "visible",
+        }}
+      >
         <iframe
           ref={battle.hiddenUserIframeRef}
           width="400"

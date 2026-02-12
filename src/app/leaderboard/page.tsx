@@ -36,11 +36,17 @@ export default function GlobalLeaderboardPage() {
 
   const getRankColor = (title: string) => {
       switch(title) {
-          case "Grandmaster": return "text-purple-400 bg-purple-400/10 border-purple-400/20";
-          case "Master": return "text-red-400 bg-red-400/10 border-red-400/20";
-          case "Expert": return "text-blue-400 bg-blue-400/10 border-blue-400/20";
-          case "Apprentice": return "text-green-400 bg-green-400/10 border-green-400/20";
-          default: return "text-zinc-400 bg-zinc-400/10 border-zinc-400/20";
+          case "dev": return "text-blue-400 bg-blue-500/10 border-blue-500/30 shadow-[0_0_10px_rgba(96,165,250,0.3)]";
+          case "1grid": return "text-purple-400 bg-purple-500/20 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)]"; // Highest - Glowing Purple
+          case "1flex": return "text-fuchsia-400 bg-fuchsia-500/10 border-fuchsia-500/30"; // Very High
+          case "2flex": return "text-red-400 bg-red-500/10 border-red-500/30"; // High
+          case "3flex": return "text-orange-400 bg-orange-500/10 border-orange-500/30";
+          case "4flex": return "text-yellow-400 bg-yellow-500/10 border-yellow-500/30";
+          case "5flex": return "text-green-400 bg-green-500/10 border-green-500/30";
+          case "6flex": return "text-cyan-400 bg-cyan-500/10 border-cyan-500/30";
+          case "7flex": return "text-slate-400 bg-slate-500/10 border-slate-500/30";
+          case "8flex": return "text-zinc-500 bg-zinc-500/10 border-zinc-500/20"; // Lowest
+          default: return "text-zinc-600 bg-zinc-500/5 border-zinc-500/10";
       }
   };
 
@@ -51,9 +57,6 @@ export default function GlobalLeaderboardPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-                <Link href="/dashboard" className="p-2 -ml-2 hover:bg-white/5 rounded-full transition-colors text-zinc-400 hover:text-white">
-                    <ArrowLeft className="w-5 h-5" />
-                </Link>
                 <div>
                    <h1 className="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-400 to-yellow-600 drop-shadow-sm flex items-center gap-2">
                      <Trophy className="w-8 h-8 text-yellow-500" /> Global Leaderboard

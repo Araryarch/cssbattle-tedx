@@ -1,6 +1,6 @@
 "use client";
 
-import Header from "@/components/Header";
+
 import { useUser } from "@/components/UserProvider";
 import { Switch } from "@headlessui/react";
 import { useState } from "react";
@@ -13,7 +13,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-black text-white">
-      <Header />
+
 
       <main className="flex-1 max-w-3xl mx-auto px-6 py-16 space-y-10">
         <header className="flex items-center gap-3">

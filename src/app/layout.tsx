@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 };
 
 import { Toaster } from "@/components/ui/sonner";
+import Layouts from "@/Layouts/Layouts";
 
 export default function RootLayout({
   children,
@@ -26,7 +27,9 @@ export default function RootLayout({
       <body
         className={`${jetbrainsMono.className} antialiased bg-[#050505] text-white selection:bg-primary/30`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <Layouts>{children}</Layouts>
+        </Providers>
         <Toaster />
       </body>
     </html>

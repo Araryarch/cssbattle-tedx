@@ -30,7 +30,7 @@ export default function BattleRight({ challenge, unlockedTips, onUnlockTip }: Ba
 
       <div className="p-4 space-y-6">
         {/* Target Image Component */}
-        <div className="w-full aspect-[4/3] bg-white rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10 relative group">
+        <div className="w-full aspect-[4/3] bg-zinc-900 rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10 relative group">
             {challenge?.imageUrl ? (
               <img 
                 src={challenge.imageUrl} 
@@ -38,12 +38,15 @@ export default function BattleRight({ challenge, unlockedTips, onUnlockTip }: Ba
                 className="w-full h-full object-cover"
               />
             ) : (
-               /* Fallback for code-only targets (rare) - scaled to fit approx width */
-               <div className="w-[400px] h-[300px] origin-top-left scale-[0.75] bg-white">
+               /* Fallback for code-only targets - scaled to fit strictly (318px / 400px = 0.795) */
+               <div 
+                  className="w-[400px] h-[300px] origin-top-left select-none pointer-events-none"
+                  style={{ transform: "scale(0.795)" }} 
+               >
                   <iframe
                       title="target-frame"
                       srcDoc={targetSrcDoc}
-                      className="w-full h-full border-none bg-white select-none pointer-events-none"
+                      className="w-full h-full border-none"
                   />
                </div>
             )}

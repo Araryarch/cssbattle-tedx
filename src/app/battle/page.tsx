@@ -1,6 +1,5 @@
 "use client";
 
-import Header from "@/components/Header";
 import ChallengeCard from "@/components/ChallengeCard";
 import { motion } from "framer-motion";
 import { useChallenges } from "@/lib/hooks";
@@ -11,9 +10,7 @@ export default function BattleIndexPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-black text-white">
-      <Header />
-
-      <main className="flex-1 max-w-7xl mx-auto px-6 py-16">
+      <main className="flex-1 max-w-7xl mx-auto px-6 py-16 w-full">
         <header className="flex items-center justify-between mb-10">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight uppercase">

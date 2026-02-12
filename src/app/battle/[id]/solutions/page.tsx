@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getChallengeSolutionsAction } from "@/lib/submission-actions";
 import { getChallengeAction } from "@/lib/challenge-actions";
-import { Loader2, ArrowLeft, Trophy, Lock, Eye, Target, CalendarDays, Code, Hash, Clock } from "lucide-react";
+import { Loader2, ArrowLeft, Trophy, Lock, Eye, Target, CalendarDays, Code, Hash, Clock, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import SubmissionViewer from "@/components/admin/SubmissionViewer";
@@ -19,6 +19,7 @@ interface Solution {
   duration: number | null;
   chars: number | null;
   createdAt: Date;
+  commentCount: number;
 }
 
 export default function BattleSolutionsPage() {
@@ -110,70 +111,98 @@ export default function BattleSolutionsPage() {
             </div>
         </div>
 
-        {/* Solutions Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Solutions List (Cards) */}
+        <div className="flex flex-col gap-4 max-w-5xl mx-auto">
             {solutions.length === 0 ? (
-                <div className="col-span-full py-12 text-center text-zinc-500 italic bg-white/5 rounded-2xl border border-white/5">
+                <div className="py-12 text-center text-zinc-500 italic bg-white/5 rounded-2xl border border-white/5">
                     No other solutions yet. You are the pioneer!
                 </div>
             ) : (
                 solutions.map((sol) => (
-                    <div key={sol.id} className="glass border border-white/5 rounded-xl overflow-hidden hover:border-white/20 transition-all group flex flex-col h-full hover:shadow-xl hover:shadow-primary/5">
+                    <div 
+                        key={sol.id} 
+                        className="bg-[#0a0a0c] border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-all group flex flex-col"
+                    >
                         {/* Header */}
-                        <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                        <div className="px-4 py-3 bg-white/[0.02] border-b border-white/5 flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center font-bold text-xs text-zinc-300">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center font-bold text-xs text-zinc-300 border border-white/5">
                                     {sol.userName?.charAt(0).toUpperCase()}
                                 </div>
-                                <div className="flex flex-col leading-tight">
+                                <div className="flex flex-col leading-none gap-1">
                                     <span className="font-bold text-sm text-white">{sol.userName || "Anonymous"}</span>
-                                    <span className="text-[10px] text-zinc-500 font-mono">{sol.createdAt.toLocaleDateString()}</span>
+                                    <span className="text-[10px] text-zinc-500 font-mono">
+                                        {sol.createdAt.toLocaleDateString()} • {sol.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
                                 </div>
                             </div>
-                            <div className="flex flex-col items-end">
-                                <span className="text-lg font-mono font-bold text-yellow-500 leading-none">{sol.score}</span>
-                                <span className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">Points</span>
-                            </div>
-                        </div>
-                        
-                        {/* Stats Grid */}
-                        <div className="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5 bg-white/[0.02]">
-                            <div className="p-2 flex flex-col items-center justify-center gap-0.5" title="Accuracy">
-                                <Target className="w-3 h-3 text-blue-400 opacity-70" />
-                                <span className="text-xs font-mono text-zinc-300">{sol.accuracy}%</span>
-                            </div>
-                            <div className="p-2 flex flex-col items-center justify-center gap-0.5" title="Characters">
-                                <Hash className="w-3 h-3 text-orange-400 opacity-70" />
-                                <span className="text-xs font-mono text-zinc-300">{sol.chars ?? sol.code.length}</span>
-                            </div>
-                            <div className="p-2 flex flex-col items-center justify-center gap-0.5" title="Duration">
-                                <Clock className="w-3 h-3 text-green-400 opacity-70" />
-                                <span className="text-xs font-mono text-zinc-300">{Math.round(sol.duration ? sol.duration / 60 : 0)}m</span>
+                            
+                            <div className="flex items-center gap-4">
+                                <div className="bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded text-xs font-bold font-mono border border-yellow-500/20">
+                                    {sol.score} PTS
+                                </div>
                             </div>
                         </div>
 
-                        {/* Preview (Small) & Action */}
-                        <div className="flex-1 p-4 bg-[#0a0a0c] relative group-hover:bg-[#0f0f11] transition-colors flex flex-col items-center justify-center gap-4">
-                             {/* Mini Preview */}
-                             <div className="w-full aspect-[4/3] bg-white rounded overflow-hidden relative ring-1 ring-white/10 opacity-60 group-hover:opacity-100 transition-opacity">
-                                <iframe 
-                                    srcDoc={`<!DOCTYPE html><html><head><style>body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:white;transform:scale(0.5);transform-origin:top left;width:200%;height:200%;}</style></head><body>${sol.code}</body></html>`} 
-                                    className="w-full h-full border-none pointer-events-none" 
-                                    title="preview"
-                                />
-                             </div>
-                             
-                             <button
-                                onClick={() => setSelectedSolution({
-                                    ...sol,
-                                    challengeTitle: challenge.title,
-                                    challengeTarget: challenge.targetCode,
-                                    challengeImage: challenge.imageUrl
-                                })}
-                                className="w-full py-2 bg-white/5 hover:bg-white text-white hover:text-black font-bold text-xs uppercase tracking-widest rounded transition-all flex items-center justify-center gap-2 group/btn"
-                             >
-                                <Eye className="w-3 h-3 group-hover/btn:scale-110 transition-transform"/> View Code
-                             </button>
+                        {/* Code Snippet */}
+                        <div className="relative bg-[#050505] group/code">
+                            <pre className="p-4 overflow-x-auto text-xs font-mono text-zinc-400 bg-[#050505] leading-relaxed tab-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent max-h-[250px] overflow-y-hidden mask-bottom">
+                                <code>{sol.code}</code>
+                            </pre>
+                            {/* Overlay Gradient for truncation effect */}
+                            <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#050505] to-transparent pointer-events-none" />
+                            
+                            {/* View Button Overlay */}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/code:opacity-100 transition-opacity flex items-center justify-center">
+                                <button
+                                    onClick={() => setSelectedSolution({
+                                        ...sol,
+                                        challengeTitle: challenge.title,
+                                        challengeTarget: challenge.targetCode,
+                                        challengeImage: challenge.imageUrl
+                                    })}
+                                    className="px-6 py-2 bg-white text-black font-bold text-xs uppercase tracking-widest rounded-full hover:scale-105 transition-transform shadow-lg flex items-center gap-2"
+                                >
+                                    <Code className="w-4 h-4" /> View Full Solution
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Stats Footer */}
+                        <div className="px-4 py-2 bg-white/[0.02] border-t border-white/5 flex items-center gap-6 text-xs text-zinc-500 font-mono">
+                            <div className="flex items-center gap-1.5" title="Match Accuracy">
+                                <Target className="w-3.5 h-3.5 text-blue-400/80" />
+                                <span>{sol.accuracy}% Match</span>
+                            </div>
+                            <div className="flex items-center gap-1.5" title="Character Count">
+                                <Hash className="w-3.5 h-3.5 text-orange-400/80" />
+                                <span>{sol.chars ?? sol.code.length} chars</span>
+                            </div>
+                            {sol.duration && (
+                                <div className="flex items-center gap-1.5" title="Time Taken">
+                                    <Clock className="w-3.5 h-3.5 text-green-400/80" />
+                                    <span>{Math.round(sol.duration / 60)}m</span>
+                                </div>
+                            )}
+                            
+                            <div className="flex items-center gap-1.5" title="Comments">
+                                <MessageSquare className="w-3.5 h-3.5 text-zinc-500" />
+                                <span>{sol.commentCount || 0}</span>
+                            </div>
+                            
+                            <div className="ml-auto">
+                                <button
+                                    onClick={() => setSelectedSolution({
+                                        ...sol,
+                                        challengeTitle: challenge.title,
+                                        challengeTarget: challenge.targetCode,
+                                        challengeImage: challenge.imageUrl
+                                    })}
+                                    className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-white transition-colors flex items-center gap-1"
+                                >
+                                    Details <ArrowLeft className="w-3 h-3 rotate-180" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ))

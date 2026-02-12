@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Calendar, Clock, ArrowRight, Trophy, Loader2 } from "lucide-react";
 import { formatDistanceToNow, isFuture, isPast } from "date-fns";
 import { useActiveContests } from "@/lib/hooks";
-import Header from "@/components/Header";
+
 import { motion } from "framer-motion";
 
 export default function ContestsPage() {
@@ -12,7 +12,7 @@ export default function ContestsPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <Header />
+
       <main className="pt-24 pb-20">
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-16">
