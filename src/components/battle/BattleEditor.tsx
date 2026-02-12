@@ -91,8 +91,14 @@ export default function BattleEditor({
   useEffect(() => {
       if (monaco) {
           try {
-              const dispose = emmetHTML(monaco);
-              return () => dispose();
+              const disposeHTML = emmetHTML(monaco);
+              // Force CSS Emmet in HTML to handle style tags if emmetHTML fails to delegate
+              const disposeCSS = emmetCSS(monaco, ['css', 'html']); 
+              
+              return () => {
+                  disposeHTML();
+                  disposeCSS();
+              };
           } catch (e) {
               console.error("Emmet init failed", e);
           }
@@ -118,9 +124,9 @@ export default function BattleEditor({
   return (
     <div className="flex flex-col bg-[#0a0a0c] h-full relative">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[#0a0a0c] border-b border-white/5 z-20 relative">
-        <div className="flex items-center gap-4">
-           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">CSS Editor</span>
+      <div className="flex items-center justify-between px-3 py-2 md:px-4 bg-[#0a0a0c] border-b border-white/5 z-20 relative shrink-0">
+        <div className="flex items-center gap-2 md:gap-4">
+           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest hidden sm:block">CSS Editor</span>
            <div className="flex items-center gap-2">
                <div className="bg-white/5 rounded-md px-2 py-0.5 text-[10px] font-mono text-zinc-400 border border-white/5 flex items-center gap-1.5" title="Time Elapsed">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
@@ -132,7 +138,7 @@ export default function BattleEditor({
            </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 md:gap-2">
             <button
                 onClick={() => setShowSettings(!showSettings)}
                 className={cn("p-1.5 rounded-md transition-colors", showSettings ? "bg-white/10 text-white" : "text-zinc-500 hover:text-white hover:bg-white/5")}

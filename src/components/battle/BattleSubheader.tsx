@@ -29,19 +29,19 @@ export default function BattleSubheader({
   onSubmit,
 }: BattleSubheaderProps) {
   return (
-    <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-black">
-      <div className="flex items-center gap-4">
+    <div className="flex items-center justify-between px-4 py-2 md:px-6 md:py-3 border-b border-white/10 bg-black">
+      <div className="flex items-center gap-2 md:gap-4">
         <Link
           href="/"
-          className="p-2 hover:bg-white/5 transition-colors text-white/60 hover:text-white"
+          className="p-1 md:p-2 hover:bg-white/5 transition-colors text-white/60 hover:text-white"
         >
           <ChevronLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h2 className="font-bold text-sm tracking-widest uppercase text-white">
+          <h2 className="font-bold text-xs md:text-sm tracking-widest uppercase text-white truncate max-w-[150px] md:max-w-none">
             {challenge?.title || `CHALLENGE #${id}`}
           </h2>
-          <div className="flex items-center gap-3 text-[10px] text-zinc-500 uppercase font-bold tracking-wider mt-0.5">
+          <div className="hidden lg:flex items-center gap-3 text-[10px] text-zinc-500 uppercase font-bold tracking-wider mt-0.5">
             <span>Target {id}</span>
             <span className="w-px h-2 bg-white/10" />
             <span>{challenge?.difficulty || "Normal"}</span>
@@ -65,12 +65,12 @@ export default function BattleSubheader({
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 md:gap-3">
         <button
           onClick={onTest}
           disabled={isTesting}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 bg-zinc-700 text-white text-xs font-bold tracking-widest uppercase transition-all hover:bg-zinc-600",
+            "flex items-center gap-1.5 md:gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-zinc-700 text-white text-[10px] md:text-xs font-bold tracking-widest uppercase transition-all hover:bg-zinc-600",
             isTesting ? "opacity-50 cursor-not-allowed" : "active:scale-95",
           )}
         >
@@ -82,7 +82,7 @@ export default function BattleSubheader({
           onClick={onSubmit}
           disabled={isSubmitting}
           className={cn(
-            "flex items-center gap-2 px-6 py-2 bg-primary text-white text-xs font-bold tracking-widest uppercase transition-all hover:bg-red-600",
+            "flex items-center gap-1.5 md:gap-2 px-4 py-1.5 md:px-6 md:py-2 bg-primary text-white text-[10px] md:text-xs font-bold tracking-widest uppercase transition-all hover:bg-red-600",
             isSubmitting ? "opacity-50 cursor-not-allowed" : "active:scale-95",
           )}
         >

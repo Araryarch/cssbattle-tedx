@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Zap, Clock, Hash, History, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChallengeStats } from "@/lib/hooks/useBattle";
@@ -31,6 +31,9 @@ export default function BattleMiddle({
   const [isHovering, setIsHovering] = useState(false);
   const [sliderValue, setSliderValue] = useState(50);
   const [showDiff, setShowDiff] = useState(false);
+  /* scaling logic */
+  const [scale, setScale] = useState(1);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const targetSrcDoc = `<!DOCTYPE html><html><head><style>body,html{margin:0;padding:0;width:400px;height:300px;overflow:hidden;background:white;}</style></head><body>${targetCode || ""}</body></html>`;
@@ -42,11 +45,31 @@ export default function BattleMiddle({
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (wrapperRef.current) {
+        const { width } = wrapperRef.current.getBoundingClientRect();
+        // Calculate scale to fit 400px width into available space (minus padding)
+        // If width > 400, scale is 1. If width < 400, scale down.
+        const availableWidth = width - 32; // 32px for padding (p-4 = 1rem = 16px * 2)
+        const newScale = Math.min(1, availableWidth / 400);
+        setScale(Math.max(0.5, newScale)); // Don't scale too small
+      }
+    };
+
+    // Initial calc
+    handleResize();
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!slideEnabled || !isHovering || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percent = Math.min(100, Math.max(0, (x / rect.width) * 100));
+    // Adjust mouse coord by scale
+    const x = (e.clientX - rect.left) / scale; 
+    const percent = Math.min(100, Math.max(0, (x / (rect.width / scale)) * 100));
     setSliderValue(percent);
   };
 
@@ -63,9 +86,9 @@ export default function BattleMiddle({
   };
 
   return (
-    <div className="flex flex-col bg-[#0a0a0c] h-full relative">
+    <div className="flex flex-col bg-[#0a0a0c] h-full relative overflow-y-auto lg:overflow-visible custom-scrollbar">
       {/* Header / Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[#0a0a0c]">
+      <div className="flex items-center justify-between px-4 py-2 bg-[#0a0a0c] sticky top-0 z-30 border-b border-white/5">
         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
           Code Output
         </span>
@@ -77,7 +100,7 @@ export default function BattleMiddle({
           >
              <Target className="w-3 h-3 group-hover:text-primary transition-colors" /> Solutions
           </Link>
-          <div className="w-px h-4 bg-white/10 mx-2" />
+          <div className="w-px h-4 bg-white/10 mx-2 hidden sm:block" />
           <label className="flex items-center gap-2 cursor-pointer group">
             <input
               type="checkbox"
@@ -87,8 +110,8 @@ export default function BattleMiddle({
               }}
               className="accent-primary w-3 h-3 cursor-pointer"
             />
-            <span className={cn("text-[10px] font-bold uppercase tracking-wider transition-colors", slideEnabled ? "text-white" : "text-zinc-500 group-hover:text-zinc-300")}>
-              Slide & Compare
+            <span className={cn("text-[10px] font-bold uppercase tracking-wider transition-colors hidden sm:block", slideEnabled ? "text-white" : "text-zinc-500 group-hover:text-zinc-300")}>
+              Slide
             </span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer group">
@@ -98,18 +121,23 @@ export default function BattleMiddle({
               onChange={(e) => setShowDiff(e.target.checked)}
               className="accent-primary w-3 h-3 cursor-pointer"
             />
-            <span className={cn("text-[10px] font-bold uppercase tracking-wider transition-colors", showDiff ? "text-white" : "text-zinc-500 group-hover:text-zinc-300")}>
+            <span className={cn("text-[10px] font-bold uppercase tracking-wider transition-colors hidden sm:block", showDiff ? "text-white" : "text-zinc-500 group-hover:text-zinc-300")}>
               Diff
             </span>
           </label>
         </div>
       </div>
 
-      {/* Output Area — simple responsive 4:3 box like BattleRight */}
-      <div className="p-4 bg-[#0a0a0c] flex items-center justify-center">
+      {/* Output Area */}
+      <div className="p-4 bg-[#0a0a0c] flex items-center justify-center flex-1 min-h-[350px]" ref={wrapperRef}>
         <div 
             ref={containerRef}
-            className="w-[400px] aspect-[4/3] bg-white rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10 relative select-none"
+            className="w-[400px] h-[300px] bg-white rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10 relative select-none origin-center transition-transform duration-200 ease-out"
+            style={{ 
+                transform: `scale(${scale})`,
+                marginBottom: `-${(1 - scale) * 150}px`, // Compensate for vertical gap caused by scaling
+                marginTop: `-${(1 - scale) * 150}px` 
+            }}
             onMouseMove={handleMouseMove}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}

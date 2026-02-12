@@ -1,9 +1,8 @@
 "use client";
 
-
 import ChallengeCard from "@/components/ChallengeCard";
 import { motion } from "framer-motion";
-import { Zap, Trophy, Flame, ChevronRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useChallenges, useHomepageStats } from "@/lib/hooks";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -42,8 +41,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-black text-white">
-
-
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative pt-32 pb-40 overflow-hidden border-b border-white/10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black">
@@ -173,8 +170,6 @@ export default function Home() {
           )}
         </section>
       </main>
-
-
     </div>
   );
 }

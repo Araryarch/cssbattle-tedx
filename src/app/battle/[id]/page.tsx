@@ -1,6 +1,9 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+import { Code2, Eye, Info } from "lucide-react";
 
 import ScoreModal from "@/components/ScoreModal";
 import BattleSubheader from "@/components/battle/BattleSubheader";
@@ -17,9 +20,10 @@ export default function BattlePage() {
   const { user } = useUser();
 
   const battle = useBattle(id, user);
+  const [activeTab, setActiveTab] = useState<"editor" | "preview" | "info">("editor");
 
   return (
-    <div className="h-screen flex flex-col bg-[#050505] overflow-hidden">
+    <div className="flex-1 flex flex-col bg-[#050505] overflow-hidden h-[100dvh] lg:h-auto">
       <BattleSubheader
         id={id}
         challenge={battle.challenge}
@@ -30,33 +34,70 @@ export default function BattlePage() {
         onSubmit={battle.handleSubmit}
       />
 
-      <main className="flex-1 overflow-hidden grid grid-cols-[1fr_440px_350px] lg:grid-cols-[1fr_440px_350px]">
-        <BattleEditor
-          code={battle.code}
-          elapsedTime={battle.elapsedTime}
-          formatTime={battle.formatTime}
-          onCodeChange={battle.handleCodeChange}
-          onReset={battle.resetCode}
-        />
+      <main className="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[1fr_440px_350px]">
+        {/* Editor Area */}
+        <div className={cn("hidden h-full flex-col lg:flex", activeTab === "editor" && "flex")}>
+          <BattleEditor
+             code={battle.code}
+             elapsedTime={battle.elapsedTime}
+             formatTime={battle.formatTime}
+             onCodeChange={battle.handleCodeChange}
+             onReset={battle.resetCode}
+          />
+        </div>
 
-        <BattleMiddle
-          challengeId={id}
-          previewDoc={battle.previewDoc}
-          targetCode={battle.challenge?.targetCode}
-          stats={battle.stats}
-          lastScore={battle.scoreResult}
-          userStats={battle.userStats}
-          showTarget={battle.showTarget}
-        />
+        {/* Middle / Preview Area */}
+        <div className={cn("hidden h-full flex-col lg:flex border-l border-white/5", activeTab === "preview" && "flex")}>
+          <BattleMiddle
+            challengeId={id}
+            previewDoc={battle.previewDoc}
+            targetCode={battle.challenge?.targetCode}
+            stats={battle.stats}
+            lastScore={battle.scoreResult}
+            userStats={battle.userStats}
+            showTarget={battle.showTarget}
+          />
+        </div>
 
-        <BattleRight
-          challenge={battle.challenge}
-          unlockedTips={battle.unlockedTips}
-          onUnlockTip={(idx) =>
-            battle.setUnlockedTips((prev) => [...prev, idx])
-          }
-        />
+        {/* Right / Info Area */}
+        <div className={cn("hidden h-full flex-col lg:flex border-l border-white/5", activeTab === "info" && "flex")}>
+          <BattleRight
+            challenge={battle.challenge}
+            unlockedTips={battle.unlockedTips}
+            onUnlockTip={(idx) =>
+              battle.setUnlockedTips((prev) => [...prev, idx])
+            }
+          />
+        </div>
       </main>
+
+      {/* Mobile Tab Navigation */}
+      <div className="lg:hidden h-16 bg-[#0a0a0c] border-t border-white/10 grid grid-cols-3 shrink-0 pb-2 z-50">
+         <button
+            onClick={() => setActiveTab("editor")}
+            className={cn("flex flex-col items-center justify-center gap-1.5 text-[10px] font-bold uppercase transition-all relative", activeTab === "editor" ? "text-white" : "text-zinc-500 hover:text-zinc-300")}
+         >
+            {activeTab === "editor" && <div className="absolute top-0 w-full h-0.5 bg-primary shadow-[0_0_10px_rgba(222,41,41,0.5)]" />}
+            <Code2 className="w-5 h-5" />
+            Code
+         </button>
+         <button
+            onClick={() => setActiveTab("preview")}
+            className={cn("flex flex-col items-center justify-center gap-1.5 text-[10px] font-bold uppercase transition-all relative", activeTab === "preview" ? "text-white" : "text-zinc-500 hover:text-zinc-300")}
+         >
+            {activeTab === "preview" && <div className="absolute top-0 w-full h-0.5 bg-primary shadow-[0_0_10px_rgba(222,41,41,0.5)]" />}
+            <Eye className="w-5 h-5" />
+            Preview
+         </button>
+         <button
+            onClick={() => setActiveTab("info")}
+            className={cn("flex flex-col items-center justify-center gap-1.5 text-[10px] font-bold uppercase transition-all relative", activeTab === "info" ? "text-white" : "text-zinc-500 hover:text-zinc-300")}
+         >
+            {activeTab === "info" && <div className="absolute top-0 w-full h-0.5 bg-primary shadow-[0_0_10px_rgba(222,41,41,0.5)]" />}
+            <Info className="w-5 h-5" />
+            Info
+         </button>
+      </div>
 
       <ScoreModal
         isOpen={battle.isModalOpen}
