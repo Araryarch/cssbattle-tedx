@@ -5,6 +5,8 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { UserAvatar } from "./UserAvatar";
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface ChatMessageProps {
   msg: {
@@ -49,9 +51,28 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ msg, isOwn, user }) =>
             p: ({node, ...props}) => <p className="mb-1 last:mb-0" {...props} />,
             a: ({node, ...props}) => <a className="text-primary hover:underline" {...props} />,
             code: ({node, inline, className, children, ...props}: any) => {
-               return inline ? 
-                <code className="bg-white/5 px-1 py-0.5 text-xs font-mono text-primary border border-primary/20" {...props}>{children}</code> :
-                <code className="block bg-black p-3 text-xs font-mono text-zinc-300 overflow-x-auto my-2 border border-white/10" {...props}>{children}</code>
+               const match = /language-(\w+)/.exec(className || '');
+               return !inline && match ? (
+                 <div className="relative my-2 rounded-md overflow-hidden border border-white/10">
+                   <div className="px-3 py-1 bg-white/5 border-b border-white/5 text-[10px] text-zinc-500 font-mono uppercase flex justify-between">
+                      <span>{match[1]}</span>
+                      {/* Optional: Copy button could go here */}
+                   </div>
+                   <SyntaxHighlighter
+                     style={vscDarkPlus}
+                     language={match[1]}
+                     PreTag="div"
+                     className="!bg-black !p-4 !m-0 !text-sm !font-mono"
+                     {...props}
+                   >
+                     {String(children).replace(/\n$/, '')}
+                   </SyntaxHighlighter>
+                 </div>
+               ) : (
+                 <code className={`${inline ? 'bg-white/10 text-primary px-1 py-0.5 rounded border border-primary/20' : 'block bg-black p-3 text-zinc-300 border border-white/10 my-2 rounded'} text-xs font-mono`} {...props}>
+                   {children}
+                 </code>
+               );
             }
           }}
         >

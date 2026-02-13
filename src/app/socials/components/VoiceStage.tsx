@@ -48,6 +48,8 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
   // Helper to attach analyser to a stream
   const attachAnalyser = (userId: string, stream: MediaStream) => {
     if (!audioContextRef.current) return;
+    if (stream.getAudioTracks().length === 0) return;
+
     try {
       if (analysersRef.current.has(userId)) return; // Already attached
       
@@ -159,16 +161,11 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
     });
   }, [participants, localStream]);
 
-  // Handle Signals (Serialized to prevent race conditions)
+  // Handle Signals (Serialized with Perfect Negotiation & Error Recovery)
   useEffect(() => {
     if (!localStream) return;
 
     const processSignals = async () => {
-      // Sort signals by timestamp to ensure order (Offer -> Answer -> Candidate) usually
-      // But candidates might arrive "before" if we rely purely on timestamp. 
-      // Safe bet: Process Offers/Answers first in the batch? 
-      // Actually, simple serialization is usually enough if the server sends them in order.
-      
       for (const signalData of signals) {
          if (processedSignalTimestamps.current.has(signalData.timestamp)) continue;
          if (signalData.fromUserId === user.id) continue;
@@ -176,64 +173,74 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
          processedSignalTimestamps.current.add(signalData.timestamp);
          
          const { fromUserId, signal } = signalData;
-         let pc = peersRef.current.get(fromUserId);
+         
+         const handleSignal = async (retry = false) => {
+             let pc = peersRef.current.get(fromUserId);
+             const polite = user.id > fromUserId; // Polite if my ID > their ID
 
-         if (!pc) {
-           pc = createPeerConnection(fromUserId);
-         }
+             if (!pc) {
+               pc = createPeerConnection(fromUserId);
+             }
 
-         try {
-           if (signal.type === 'offer') {
-               // If we are already connected (Stable) and receive an Offer, it's a renegotiation.
-               // Or a glare. 
-               // Simple logic: Always accept offer if we are receiving.
-               if (pc.signalingState !== "stable" && pc.signalingState !== "have-remote-offer") {
-                   // Glare handling: If we are 'have-local-offer', we usually rollback if we are 'impolite'.
-                   // For this simple mesh, let's just proceed and hope sending valid answers resolves it.
-                   // Ideally we'd use the "Perfect Negotiation" pattern.
-                   await Promise.all([
-                       pc.setLocalDescription({ type: "rollback" }), 
-                       pc.setRemoteDescription(new RTCSessionDescription(signal))
-                   ]);
-               } else {
+             try {
+               if (signal.type === 'offer') {
+                   const isStable = pc.signalingState === 'stable' || (pc.signalingState === 'have-local-offer' && polite);
+                   
+                   if (pc.signalingState !== "stable" && !polite) {
+                       console.warn("Ignoring offer from polite peer (glare)");
+                       return; 
+                   }
+                   
+                   if (pc.signalingState !== "stable") {
+                       await pc.setLocalDescription({ type: "rollback" });
+                   }
+
                    await pc.setRemoteDescription(new RTCSessionDescription(signal));
-               }
-               
-               const answer = await pc.createAnswer();
-               await pc.setLocalDescription(answer);
-               sendSignal(fromUserId, answer);
-               
-               // Flush queued candidates if any (managed internally by browser usually if we add null? no)
-               // Simple candidate queue logic:
-               const queue = pendingCandidates.current.get(fromUserId) || [];
-               for (const c of queue) {
-                   await pc.addIceCandidate(new RTCIceCandidate(c));
-               }
-               pendingCandidates.current.set(fromUserId, []);
+                   const answer = await pc.createAnswer();
+                   await pc.setLocalDescription(answer);
+                   sendSignal(fromUserId, answer);
+                   
+                   const queue = pendingCandidates.current.get(fromUserId) || [];
+                   for (const c of queue) {
+                       await pc.addIceCandidate(new RTCIceCandidate(c));
+                   }
+                   pendingCandidates.current.set(fromUserId, []);
 
-           } else if (signal.type === 'answer') {
-              if (pc.signalingState === "have-local-offer") {
-                  await pc.setRemoteDescription(new RTCSessionDescription(signal));
-                  // Flush queued candidates
-                  const queue = pendingCandidates.current.get(fromUserId) || [];
-                  for (const c of queue) {
-                      await pc.addIceCandidate(new RTCIceCandidate(c));
+               } else if (signal.type === 'answer') {
+                  if (pc.signalingState === "have-local-offer") {
+                      await pc.setRemoteDescription(new RTCSessionDescription(signal));
+                      const queue = pendingCandidates.current.get(fromUserId) || [];
+                      for (const c of queue) {
+                          await pc.addIceCandidate(new RTCIceCandidate(c));
+                      }
+                      pendingCandidates.current.set(fromUserId, []);
+                  } 
+               } else if (signal.candidate) {
+                  try {
+                      await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                  } catch (e) {
+                      if (!pc.remoteDescription) {
+                          const queue = pendingCandidates.current.get(fromUserId) || [];
+                          queue.push(signal.candidate);
+                          pendingCandidates.current.set(fromUserId, queue);
+                      }
                   }
-                  pendingCandidates.current.set(fromUserId, []);
-              } 
-           } else if (signal.candidate) {
-              if (pc.remoteDescription) {
-                  await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-              } else {
-                  // Queue candidate
-                  const queue = pendingCandidates.current.get(fromUserId) || [];
-                  queue.push(signal.candidate);
-                  pendingCandidates.current.set(fromUserId, queue);
-              }
-           }
-         } catch (e) {
-           console.error("Signaling error", e, signal);
-         }
+               }
+             } catch (e) {
+               console.error("Signaling error", e, signal);
+               // Error Recovery for Offer collisions/mismatches (e.g. restart)
+               const errStr = String(e).toLowerCase();
+               if (!retry && signal.type === 'offer' && (errStr.includes("m-lines") || errStr.includes("state"))) {
+                   console.log("Resetting PC and retrying offer from", fromUserId);
+                   pc?.close();
+                   peersRef.current.delete(fromUserId);
+                   // Retry once
+                   await handleSignal(true);
+               }
+             }
+         };
+         
+         await handleSignal();
       }
     };
     
@@ -267,11 +274,14 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
 
      // Allow ALL peers to negotiate to support video toggling updates
      pc.onnegotiationneeded = async () => {
+         // Avoid race conditions: Only negotiate if stable
+         if (pc.signalingState !== 'stable') return;
+
          try {
            const offer = await pc.createOffer();
            await pc.setLocalDescription(offer);
            sendSignal(targetUserId, offer);
-         } catch(e) { console.error(e); }
+         } catch(e) { console.error("Negotiation error", e); }
      };
 
      return pc;
