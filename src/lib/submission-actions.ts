@@ -405,14 +405,13 @@ async function syncContestLeaderboard(contestId: string) {
         });
     });
 
-    // Process submissions
+    // Process submissions - Find BEST score per challenge for each user
     validSubmissionsMatches.forEach(sub => {
         const userId = sub.userId;
-        const challengeId = sub.challengeId; // Assuming string
-        const score = parseFloat(sub.score);
+        const challengeId = sub.challengeId;
+        const score = parseFloat(sub.score) || 0;
         const createdAt = sub.createdAt;
 
-        // Ensure user in map (if not participant explicitly)
         if (!leaderboardMap.has(userId)) {
              leaderboardMap.set(userId, { 
                 totalScore: 0, 
@@ -422,19 +421,21 @@ async function syncContestLeaderboard(contestId: string) {
         }
         
         const stats = leaderboardMap.get(userId)!;
-
-        // Update last submission time (Activity)
         if (createdAt > stats.lastSub) {
             stats.lastSub = createdAt;
         }
 
-        // Track best score per challenge
         const key = `${userId}|${challengeId}`;
         const currentBest = userChallengeBest.get(key) || 0;
         if (score > currentBest) {
             userChallengeBest.set(key, score);
         }
     });
+
+    // Update contestSolutions (History) - Only keep one entry per user per challenge if we want to be strict,
+    // but the DB schema for contest_solutions doesn't have a unique constraint on (contestId, userId, challengeId).
+    // The previous code was inserting ALL valid submissions into contest_solutions every sync.
+    // Let's refine the sync to be more efficient or at least correct for the leaderboard.
 
     // Aggregate final scores
     // Reset totals before summing to avoid double counting if I initialized randomly
@@ -458,50 +459,58 @@ async function syncContestLeaderboard(contestId: string) {
         if (stats) stats.solvedCount = set.size;
     }
 
-    // 3. Atomic Rebuild
-    // Delete existing
-    await db.delete(contestLeaderboard).where(eq(contestLeaderboard.contestId, contestId));
-    await db.delete(contestSolutions).where(eq(contestSolutions.contestId, contestId));
+    // 3. Atomic Rebuild leaderboard data
+    // We only need to insert into contestLeaderboard for the summary view.
+    // The previous code was inserting then deleting, which could cause race conditions.
+    // However, Drizzle's delete followed by insert is the standard way to rebuild.
+    
+    // To be absolutely safe against duplicates during insertion, we use entries from our Map
+    const leaderboardEntries = Array.from(leaderboardMap.entries()).map(([userId, stats]) => ({
+        contestId,
+        userId,
+        totalScore: stats.totalScore,
+        challengesSolved: stats.solvedCount,
+        lastSubmissionAt: stats.lastSub
+    }));
 
-    // Insert Solutions (History)
-    if (validSubmissionsMatches.length > 0) {
-        // Batch insert might fail if too large? 65535 parameters limit.
-        // Chunk it if needed. For now assume reasonable size.
-        // If > 1000 subs, chunking advised.
+    if (leaderboardEntries.length > 0) {
+        // Clear old data
+        await db.delete(contestLeaderboard).where(eq(contestLeaderboard.contestId, contestId));
+        
+        // Chunked insert
         const chunkSize = 500;
-        for (let i = 0; i < validSubmissionsMatches.length; i += chunkSize) {
-            const chunk = validSubmissionsMatches.slice(i, i + chunkSize);
-            await db.insert(contestSolutions).values(
-                chunk.map(sub => ({
-                    contestId,
-                    userId: sub.userId,
-                    challengeId: sub.challengeId,
-                    code: sub.code,
-                    score: sub.score,
-                    accuracy: sub.accuracy,
-                    chars: sub.chars,
-                    duration: sub.duration,
-                    createdAt: sub.createdAt
-                }))
-            );
+        for (let i = 0; i < leaderboardEntries.length; i += chunkSize) {
+            const chunk = leaderboardEntries.slice(i, i + chunkSize);
+            await db.insert(contestLeaderboard).values(chunk);
         }
     }
+    
+    // Similarly for contestSolutions if needed, but the primary issue is the leaderboard summary.
+    // Let's also ensure contestSolutions are unique per (user, challenge) if we're rebuilding it here.
+    const bestSolutions = Array.from(userChallengeBest.keys()).map(key => {
+        const [userId, challengeId] = key.split('|');
+        const score = userChallengeBest.get(key) || 0;
+        // Find the actual submission object to get the code/accuracy/etc
+        const sub = validSubmissionsMatches.find(s => s.userId === userId && s.challengeId === challengeId && parseFloat(s.score) === score);
+        return sub ? {
+            contestId,
+            userId,
+            challengeId,
+            code: sub.code,
+            score: sub.score,
+            accuracy: sub.accuracy,
+            chars: sub.chars,
+            duration: sub.duration,
+            createdAt: sub.createdAt
+        } : null;
+    }).filter(Boolean);
 
-    // Insert Leaderboard
-    if (leaderboardMap.size > 0) {
-        const entries = Array.from(leaderboardMap.entries());
+    if (bestSolutions.length > 0) {
+        await db.delete(contestSolutions).where(eq(contestSolutions.contestId, contestId));
         const chunkSize = 500;
-        for (let i = 0; i < entries.length; i += chunkSize) {
-            const chunk = entries.slice(i, i + chunkSize);
-            await db.insert(contestLeaderboard).values(
-                chunk.map(([userId, stats]) => ({
-                    contestId,
-                    userId,
-                    totalScore: stats.totalScore,
-                    challengesSolved: stats.solvedCount,
-                    lastSubmissionAt: stats.lastSub
-                }))
-            );
+        for (let i = 0; i < bestSolutions.length; i += chunkSize) {
+            const chunk = (bestSolutions as any[]).slice(i, i + chunkSize);
+            await db.insert(contestSolutions).values(chunk);
         }
     }
     
