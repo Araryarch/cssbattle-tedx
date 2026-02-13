@@ -46,11 +46,12 @@ export const ClanBrowser = ({ activeChannelId, setActiveChannelId }: any) => {
 
   const handleJoin = async (clanId: string) => {
      try {
-       await api.post(`/clans/${clanId}/join`);
+       await api.put('/clans', { clanId, action: 'join' });
        alert("Successfully joined the clan!");
        // Ideally refresh the parent state or redirect
        window.location.reload(); 
      } catch (e) {
+       console.error(e);
        alert("Failed to join clan.");
      }
   };

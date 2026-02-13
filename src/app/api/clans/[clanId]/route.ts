@@ -4,6 +4,7 @@ import { clanMessages, clanMembers, users, voiceParticipants } from "@/db/schema
 import { eq, or, and, desc } from "drizzle-orm";
 import { verifySession } from "@/lib/session";
 import { cookies } from "next/headers";
+import { getSignalsForClan } from "@/lib/signal-store";
 
 export async function GET(
   request: Request,
@@ -77,8 +78,11 @@ export async function GET(
 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "init", messages: messages.reverse() })}\n\n`));
 
+        let lastSignalTimestamp = Date.now();
+
         const interval = setInterval(async () => {
           try {
+            // ... (keep messages logic) ...
             const latestMessages = await db
               .select({
                 id: clanMessages.id,
@@ -96,12 +100,25 @@ export async function GET(
             
             const voiceState = await fetchVoiceState();
 
+            // Handle Signals
+            const signals = getSignalsForClan(clanId);
+            const newSignals = signals.filter((s: any) => 
+              s.timestamp > lastSignalTimestamp &&
+              s.fromUserId !== payload.userId && // Don't echo back
+              (!s.toUserId || s.toUserId === payload.userId)
+            );
+
+            if (newSignals.length > 0) {
+               lastSignalTimestamp = Math.max(...newSignals.map((s: any) => s.timestamp));
+               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "voice-signal", signals: newSignals })}\n\n`));
+            }
+
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "update", messages: latestMessages.reverse() })}\n\n`));
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "voice-update", participants: voiceState })}\n\n`));
           } catch (error) {
             console.error("SSE error:", error);
           }
-        }, 3000);
+        }, 1000);
 
         request.signal.addEventListener("abort", () => {
           clearInterval(interval);

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { clans, clanMembers, clanMessages, users } from "@/db/schema";
-import { eq, or, desc } from "drizzle-orm";
+import { eq, or, desc, ilike, and } from "drizzle-orm";
 import { verifySession } from "@/lib/session";
 import { cookies } from "next/headers";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value;
@@ -19,6 +19,24 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const url = new URL(request.url);
+    const query = url.searchParams.get("q");
+    const mode = url.searchParams.get("mode");
+
+    if (query || mode === "discover") {
+       // Discovery Mode: List all clans matching query
+       const results = await db.select().from(clans).where(query ? ilike(clans.name, `%${query}%`) : undefined);
+       
+       // Attach member counts manually
+       const resultsWithCounts = await Promise.all(results.map(async (c) => {
+          const members = await db.select().from(clanMembers).where(eq(clanMembers.clanId, c.id));
+          return { ...c, _count: { members: members.length } };
+       }));
+       
+       return NextResponse.json(resultsWithCounts);
+    }
+
+    // Default: Get User's Clans
     const userClans = await db
       .select({
         id: clans.id,
@@ -27,11 +45,9 @@ export async function GET() {
         ownerId: clans.ownerId,
         image: clans.image,
         role: clanMembers.role,
-        memberCount: users.id,
       })
       .from(clanMembers)
       .leftJoin(clans, eq(clanMembers.clanId, clans.id))
-      .leftJoin(users, eq(clans.id, users.id))
       .where(eq(clanMembers.userId, payload.userId));
 
     return NextResponse.json({ clans: userClans });
@@ -125,7 +141,12 @@ export async function PUT(request: Request) {
       const existingMember = await db
         .select()
         .from(clanMembers)
-        .where(eq(clanMembers.clanId, clanId))
+        .where(
+          and(
+            eq(clanMembers.clanId, clanId),
+            eq(clanMembers.userId, payload.userId)
+          )
+        )
         .then(res => res[0]);
 
       if (existingMember) {

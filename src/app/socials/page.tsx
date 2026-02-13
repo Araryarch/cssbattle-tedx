@@ -49,11 +49,13 @@ export default function SocialsPage() {
 
   // Voice State
   const [voiceParticipants, setVoiceParticipants] = useState<any[]>([]);
+  const [voiceSignals, setVoiceSignals] = useState<any[]>([]); // New state for WebRTC signals
   const [connectedVoiceChannelId, setConnectedVoiceChannelId] = useState<string | null>(null);
 
   // Listen for voice updates from clan SSE
   useEffect(() => {
     if (activeServerId === "home") return;
+    setVoiceSignals([]); // Clear signals on switch
     
     const eventSource = new EventSource(`/api/clans/${activeServerId}`);
     
@@ -62,6 +64,9 @@ export default function SocialsPage() {
         const data = JSON.parse(event.data);
         if (data.type === "voice-update") {
            setVoiceParticipants(data.participants || []);
+        } else if (data.type === "voice-signal") {
+           // Queue new signals
+           setVoiceSignals(prev => [...prev, ...data.signals]);
         }
       } catch (e) {
         // ignore
@@ -227,11 +232,15 @@ export default function SocialsPage() {
            />
         ) : ['Lobby', 'Gaming', 'General Voice'].includes(activeChannelId) ? (
            /* VOICE STAGE */
+           /* VOICE STAGE */
            <VoiceStage 
              channelId={activeChannelId} 
+             clanId={activeServerId}
              participants={voiceParticipants.filter(p => p.channelId === activeChannelId)} 
              user={user}
              onLeave={leaveVoice}
+             signals={voiceSignals} // Pass signals
+             setSignals={setVoiceSignals} // Allow clearing
            />
         ) : currentChat ? (
           /* CHAT INTERFACE */
