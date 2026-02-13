@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { contests, contestChallenges, challenges, contestParticipants, users, contestLeaderboard } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { verifySession } from "@/lib/session";
@@ -167,18 +167,30 @@ export async function joinContestAction(contestId: string) {
         const session = await verifySession(token);
 
         if (!session?.userId) return { success: false, error: "Unauthorized" };
+        const userId = session.userId as string;
 
+        // 1. Explicit check to prevent spam duplicates
+        const existing = await db.query.contestParticipants.findFirst({
+            where: and(
+                eq(contestParticipants.contestId, contestId),
+                eq(contestParticipants.userId, userId)
+            )
+        });
+
+        if (existing) return { success: true };
+
+        // 2. Insert with onConflictDoNothing as secondary safety
         await db.insert(contestParticipants)
             .values({
                 contestId,
-                userId: session.userId as string,
+                userId: userId,
             })
             .onConflictDoNothing();
 
-        // Also add to leaderboard with 0 score (so they appear as participant)
+        // 3. Leaderboard entry
         await db.insert(contestLeaderboard).values({
             contestId: contestId,
-            userId: session.userId as string,
+            userId: userId,
             totalScore: 0,
             challengesSolved: 0,
             lastSubmissionAt: new Date(0)
@@ -194,18 +206,20 @@ export async function joinContestAction(contestId: string) {
 
 export async function getContestParticipantsAction(contestId: string) {
     try {
+        // Group by user to ensure uniqueness even if there's duplicate data
         const participants = await db
             .select({
                 id: users.id,
                 name: users.name,
                 image: users.image,
                 rank: users.rank,
-                joinedAt: contestParticipants.joinedAt
+                joinedAt: sql<Date>`min(${contestParticipants.joinedAt})`
             })
             .from(contestParticipants)
             .innerJoin(users, eq(contestParticipants.userId, users.id))
             .where(eq(contestParticipants.contestId, contestId))
-            .orderBy(desc(contestParticipants.joinedAt));
+            .groupBy(users.id, users.name, users.image, users.rank)
+            .orderBy(desc(sql`min(${contestParticipants.joinedAt})`));
         
         return participants;
     } catch (error) {

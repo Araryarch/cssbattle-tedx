@@ -4,6 +4,7 @@ import { eq, desc, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { User, Mail, Trophy, Code, Calendar } from "lucide-react";
 import Link from "next/link";
+import CertificateButton from "@/components/profile/CertificateButton";
 
 async function getUserProfile(id: string) {
   const user = await db
@@ -94,6 +95,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             >
               Find Friends
             </Link>
+            <CertificateButton user={user} />
           </div>
         </div>
       </div>

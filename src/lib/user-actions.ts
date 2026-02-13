@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { users, submissions, challenges } from "@/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { verifySession } from "@/lib/session";
@@ -190,6 +190,29 @@ export async function getUserCompletedChallengesAction() {
         return Array.from(unique.values());
     } catch (error) {
         console.error("Failed to fetch completed challenges:", error);
+        return [];
+    }
+}
+// Admin: Get users eligible for certificates
+export async function getEligibleCertificateUsersAction() {
+    try {
+        const cookieStore = await cookies();
+        const token = cookieStore.get("auth-token")?.value;
+        const session = await verifySession(token);
+
+        if (!session?.userId || session.role !== "admin") {
+             return [];
+        }
+
+        const eligibleRanks = ["dev", "1grid", "1flex", "2flex", "3flex", "4flex"];
+        
+        return await db
+            .select()
+            .from(users)
+            .where(inArray(users.rank, eligibleRanks))
+            .orderBy(desc(users.rank));
+    } catch (error) {
+        console.error("Failed to fetch eligible users:", error);
         return [];
     }
 }

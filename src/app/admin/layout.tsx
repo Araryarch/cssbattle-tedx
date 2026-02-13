@@ -42,6 +42,11 @@ const sidebarItems = [
     href: "/admin/submissions",
     icon: FileCode,
   },
+  {
+    title: "Certificates",
+    href: "/admin/certificates",
+    icon: Trophy, // Reusing Trophy or Medal if imported. Trophy is imported. 
+  },
 ];
 
 export default function AdminLayout({

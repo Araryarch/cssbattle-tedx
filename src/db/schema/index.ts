@@ -95,11 +95,9 @@ export const contestChallenges = pgTable(
       .references(() => challenges.id, { onDelete: "cascade" }),
     order: integer("order").notNull().default(0),
   },
-  (t) => [
-    {
-      pk: primaryKey({ columns: [t.contestId, t.challengeId] }),
-    },
-  ]
+  (t) => ({
+    pk: primaryKey({ columns: [t.contestId, t.challengeId] }),
+  })
 );
 
 export const contestParticipants = pgTable(
@@ -113,11 +111,9 @@ export const contestParticipants = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     joinedAt: timestamp("joined_at").defaultNow().notNull(),
   },
-  (t) => [
-    {
-        pk: primaryKey({ columns: [t.contestId, t.userId] }),
-    }
-  ]
+  (t) => ({
+    pk: primaryKey({ columns: [t.contestId, t.userId] }),
+  })
 );
 
 export const comments = pgTable("comments", {
@@ -271,9 +267,7 @@ export const contestLeaderboard = pgTable(
     challengesSolved: integer("challenges_solved").default(0),
     lastSubmissionAt: timestamp("last_submission_at").defaultNow().notNull(),
   },
-  (t) => [
-      {
-          pk: primaryKey({ columns: [t.contestId, t.userId] }),
-      }
-  ]
+  (t) => ({
+    pk: primaryKey({ columns: [t.contestId, t.userId] }),
+  })
 );
