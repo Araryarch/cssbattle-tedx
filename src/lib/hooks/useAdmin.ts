@@ -14,7 +14,8 @@ export function useAdminContests() {
       const { data } = await api.get("/admin/contests");
       return data.contests;
     },
-    staleTime: 1000 * 30,
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000,
   });
 }
 
@@ -26,7 +27,8 @@ export function useAdminChallenges() {
       const { data } = await api.get("/admin/challenges");
       return data.challenges;
     },
-    staleTime: 1000 * 30,
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000,
   });
 }
 

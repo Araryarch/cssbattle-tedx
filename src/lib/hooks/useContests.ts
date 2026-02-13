@@ -57,7 +57,8 @@ export function useActiveContests() {
   return useQuery({
     queryKey: contestKeys.active(),
     queryFn: fetchActiveContests,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000,
   });
 }
 
@@ -69,6 +70,7 @@ export function useContest(id: string) {
     queryKey: contestKeys.detail(id),
     queryFn: () => fetchContestById(id),
     enabled: !!id,
-    staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000,
   });
 }

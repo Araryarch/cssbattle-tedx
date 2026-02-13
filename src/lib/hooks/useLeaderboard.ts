@@ -20,7 +20,7 @@ export function useLeaderboard() {
       const { data } = await api.get("/leaderboard");
       return data.leaderboard;
     },
-    staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 1000 * 30, // Refresh every 30s for near-realtime
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
 }

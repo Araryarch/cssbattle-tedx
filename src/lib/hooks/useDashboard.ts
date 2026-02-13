@@ -40,7 +40,7 @@ export function useDashboard() {
       const { data } = await api.get("/dashboard");
       return data;
     },
-    staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 1000 * 60, // Refresh every minute
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
 }

@@ -40,13 +40,13 @@ export async function sendOTPEmail(email: string, otp: string) {
   });
 
   await transporter.sendMail({
-    from: `"TEDxCSS" <${smtpUser}>`,
+    from: `"StyleWars" <${smtpUser}>`,
     to: email,
-    subject: "TEDxCSS - Verification Code",
+    subject: "StyleWars - Verification Code",
     text: `Your verification code is: ${otp}\n\nThis code expires in 10 minutes.`,
     html: `
       <div style="font-family: -apple-system, sans-serif; max-width: 400px; margin: 0 auto; padding: 40px 20px; color: #333;">
-        <h2 style="margin-bottom: 8px;">TEDxCSS Verification</h2>
+        <h2 style="margin-bottom: 8px;">StyleWars Verification</h2>
         <p style="color: #666; font-size: 14px;">Enter this code to verify your account:</p>
         <div style="background: #111; color: #fff; padding: 20px; text-align: center; font-size: 32px; font-family: monospace; letter-spacing: 8px; font-weight: bold; margin: 20px 0;">
           ${otp}

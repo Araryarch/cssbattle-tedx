@@ -34,6 +34,7 @@ export function useHomepageStats() {
   return useQuery({
     queryKey: homepageKeys.stats,
     queryFn: fetchHomepageStats,
-    staleTime: 1000 * 60 * 1, // 1 minute
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
 }

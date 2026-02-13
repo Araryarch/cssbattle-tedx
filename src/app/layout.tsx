@@ -1,21 +1,18 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { metadata, viewport } from "./metadata";
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains-mono",
 });
 
-export const metadata: Metadata = {
-  title: "TedxITS Frontend Live Coding",
-  description:
-    "Remake of the classic CSSBattle with modern tech and premium design.",
-};
-
 import { Toaster } from "@/components/ui/sonner";
 import Layouts from "@/Layouts/Layouts";
+
+export { metadata, viewport };
 
 export default function RootLayout({
   children,
@@ -23,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${jetbrainsMono.className} antialiased bg-[#050505] text-white selection:bg-primary/30`}
       >

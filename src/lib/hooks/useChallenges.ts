@@ -45,7 +45,8 @@ export function useChallenges() {
   return useQuery({
     queryKey: challengeKeys.list(),
     queryFn: fetchChallenges,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000,
     select: (data): DisplayChallenge[] =>
       data.map((c) => ({
         ...c,

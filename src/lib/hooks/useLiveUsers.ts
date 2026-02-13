@@ -31,7 +31,7 @@ export function useLiveUsers() {
   return useQuery({
     queryKey: liveKeys.users,
     queryFn: fetchLiveUsers,
+    refetchOnWindowFocus: true,
     refetchInterval: 5000, // Auto-refetch every 5 seconds
-    staleTime: 3000,
   });
 }

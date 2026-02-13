@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Zap, User, Search, LogOut, Settings } from "lucide-react";
+import { Zap, User, LogOut, Settings, MessageCircle } from "lucide-react";
 import { useUser } from "@/components/UserProvider";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLogout } from "@/lib/hooks";
+import SearchModal from "@/components/SearchModal";
 
 export default function Header() {
   const { user, loading } = useUser();
@@ -16,12 +17,9 @@ export default function Header() {
     <header className="h-16 border-b border-white/10 bg-black sticky top-0 z-50">
       <div className="container mx-auto h-full px-4 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-8 h-8 bg-primary flex items-center justify-center transition-transform group-hover:scale-105">
-              <Zap className="w-5 h-5 text-white fill-white" />
-            </div>
-            <span className="font-bold text-xl tracking-tighter text-white">
-              TEDx<span className="text-primary">CSS</span>
+          <Link href="/" className="flex items-center group">
+            <span className="font-black text-xl tracking-tight text-white">
+              Style<span className="text-primary">Wars</span>
             </span>
           </Link>
 
@@ -44,6 +42,18 @@ export default function Header() {
             >
               Leaderboard
             </Link>
+            <Link
+              href="/socials"
+              className="text-sm font-medium hover:text-primary transition-colors uppercase tracking-wider"
+            >
+              Socials
+            </Link>
+            <Link
+              href="/clans"
+              className="text-sm font-medium hover:text-primary transition-colors uppercase tracking-wider"
+            >
+              Clans
+            </Link>
             {user?.role === "admin" && (
               <Link
                 href="/admin"
@@ -56,9 +66,7 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="p-2 hover:bg-white/5 rounded-full transition-colors opacity-60 hover:opacity-100">
-            <Search className="w-5 h-5" />
-          </button>
+          <SearchModal />
 
           {loading ? (
             <div className="w-8 h-8 rounded-full bg-white/5 animate-pulse" />

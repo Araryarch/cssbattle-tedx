@@ -1,17 +1,9 @@
-import { db } from "@/db";
-import { challenges, users, submissions } from "@/db/schema";
-import { Trophy, Users, Code, Activity } from "lucide-react";
-import { count } from "drizzle-orm";
 import Link from "next/link";
+import { Trophy, Users, Activity } from "lucide-react";
 import LiveUserList from "@/components/LiveUserList";
+import AdminDashboardStats from "@/components/AdminDashboardStats";
 
-export default async function AdminDashboard() {
-  const [challengesCount, usersCount, submissionsCount] = await Promise.all([
-    db.select({ count: count() }).from(challenges).then(res => res[0]?.count || 0),
-    db.select({ count: count() }).from(users).then(res => res[0]?.count || 0),
-    db.select({ count: count() }).from(submissions).then(res => res[0]?.count || 0),
-  ]);
-
+export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
@@ -19,47 +11,7 @@ export default async function AdminDashboard() {
         <p className="text-zinc-400">Welcome back, Admin.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 rounded-xl border border-white/5 bg-zinc-900/50">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-purple-500/10 text-purple-400">
-              <Trophy className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm text-zinc-400 font-medium">
-                Total Challenges
-              </p>
-              <h3 className="text-2xl font-bold">{challengesCount}</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 rounded-xl border border-white/5 bg-zinc-900/50">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-blue-500/10 text-blue-400">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm text-zinc-400 font-medium">Total Users</p>
-              <h3 className="text-2xl font-bold">{usersCount}</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 rounded-xl border border-white/5 bg-zinc-900/50">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-green-500/10 text-green-400">
-              <Activity className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm text-zinc-400 font-medium">
-                Total Submissions
-              </p>
-              <h3 className="text-2xl font-bold">{submissionsCount}</h3>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AdminDashboardStats />
       
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="p-6 rounded-xl border border-white/5 bg-zinc-900/50 hover:bg-zinc-900 transition-colors group">

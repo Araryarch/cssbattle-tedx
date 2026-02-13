@@ -57,12 +57,9 @@ export default function AdminLayout({
       {/* Sidebar */}
       <aside className="w-64 border-r border-white/5 bg-zinc-900/50 flex flex-col">
         <div className="p-6 border-b border-white/5">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center rotate-3 group-hover:rotate-12 transition-transform">
-              <Trophy className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-black text-xl tracking-tighter">
-              TEDx<span className="text-red-500">CSS</span>
+          <Link href="/" className="inline-block">
+            <span className="font-black text-xl tracking-tight">
+              Style<span className="text-red-500">Wars</span>
             </span>
           </Link>
         </div>

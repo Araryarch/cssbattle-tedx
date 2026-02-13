@@ -21,8 +21,8 @@ export async function signSession(payload: any): Promise<string> {
 }
 
 export async function verifySession(token?: string): Promise<SessionPayload | null> {
-  const cookieStore = cookies();
-  const tokenToVerify = token || (cookieStore as any).get?.("session")?.value || (await cookieStore).get("session")?.value;
+  const cookieStore = await cookies();
+  const tokenToVerify = token || cookieStore.get("auth-token")?.value;
 
   if (!tokenToVerify) return null;
   try {
