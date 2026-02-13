@@ -19,6 +19,7 @@ import { FriendsDashboard } from "./components/FriendsDashboard";
 import { VoiceStage } from "./components/VoiceStage";
 import { ChatInterface } from "./components/ChatInterface";
 import { CreateClanModal } from "./components/CreateClanModal";
+import { ClanBrowser } from "./components/browser/ClanBrowser";
 
 export default function SocialsPage() {
   const { user } = useUser();
@@ -168,6 +169,11 @@ export default function SocialsPage() {
         activeServerId={activeServerId}
         onServerSwitch={handleServerSwitch}
         onShowCreateClanModal={() => setShowCreateClanModal(true)}
+        onDiscover={() => {
+           setActiveServerId("home");
+           setActiveChannelId("browser");
+           setMobileSidebarOpen(false);
+        }}
         mobileSidebarOpen={mobileSidebarOpen}
       />
 
@@ -212,7 +218,13 @@ export default function SocialsPage() {
              sendRequest={sendRequest}
              respondToRequest={respondToRequest}
              handleChannelSwitch={handleChannelSwitch}
-          />
+           />
+        ) : activeServerId === "home" && activeChannelId === "browser" ? (
+           /* CLAN BROWSER */
+           <ClanBrowser 
+              activeChannelId={activeChannelId} 
+              setActiveChannelId={setActiveChannelId}
+           />
         ) : ['Lobby', 'Gaming', 'General Voice'].includes(activeChannelId) ? (
            /* VOICE STAGE */
            <VoiceStage 

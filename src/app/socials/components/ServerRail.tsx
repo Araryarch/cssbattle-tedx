@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, Tv } from "lucide-react";
+import { Plus, Tv, Compass } from "lucide-react";
 import { ServerIcon } from "./ServerIcon";
 
 interface ServerRailProps {
@@ -7,6 +7,7 @@ interface ServerRailProps {
   activeServerId: string;
   onServerSwitch: (id: string) => void;
   onShowCreateClanModal: () => void;
+  onDiscover: () => void; // New prop
   mobileSidebarOpen: boolean;
 }
 
@@ -15,6 +16,7 @@ export const ServerRail: React.FC<ServerRailProps> = ({
   activeServerId, 
   onServerSwitch, 
   onShowCreateClanModal,
+  onDiscover,
   mobileSidebarOpen 
 }) => (
   <nav className={`
@@ -47,6 +49,14 @@ export const ServerRail: React.FC<ServerRailProps> = ({
       title="Create Clan"
     >
       <Plus className="w-6 h-6" />
+    </button>
+    
+    <button 
+      onClick={onDiscover}
+      className="group w-full aspect-square flex items-center justify-center bg-black hover:bg-white text-zinc-500 hover:text-black border-b border-white/10 transition-colors"
+      title="Discover Servers"
+    >
+      <Compass className="w-6 h-6" />
     </button>
   </nav>
 );
