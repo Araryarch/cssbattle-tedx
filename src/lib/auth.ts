@@ -41,7 +41,11 @@ export const auth = betterAuth({
     emailAndPassword: {
         enabled: false,
     },
-    baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+    baseURL: process.env.BETTER_AUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"),
+    trustedOrigins: [
+        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : [])
+    ],
     callbacks: {
         session: async ({ session, user }: { session: any, user: any }) => {
             // Force fetch user to ensure we get custom fields like role
