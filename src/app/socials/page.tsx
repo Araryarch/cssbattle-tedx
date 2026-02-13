@@ -18,8 +18,8 @@ type GlobalMessage = {
   senderId: string;
   content: string;
   createdAt: string;
-  senderName?: string;
-  senderImage?: string;
+  senderName?: string | null;
+  senderImage?: string | null;
 };
 
 type Friend = {
@@ -80,17 +80,24 @@ export default function SocialsPage() {
     const eventSource = new EventSource("/api/global-chat");
 
     eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "init") {
-        setMessages(data.messages);
-        setCurrentUserId(data.userId);
-      } else if (data.type === "update") {
-        setMessages((prev) => {
-          const newMsgs = data.messages.filter(
-            (m: GlobalMessage) => !prev.some((p) => p.id === m.id)
-          );
-          return [...prev, ...newMsgs];
-        });
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "init") {
+          setMessages(data.messages || []);
+        } else if (data.type === "update") {
+          setMessages((prev) => {
+            // Don't add duplicate messages - check by content + senderId + approximate time
+            const existingContents = prev.map(m => `${m.senderId}-${m.content}-${Math.floor(new Date(m.createdAt).getTime() / 1000)}`);
+            const newMsgs = data.messages.filter((m: GlobalMessage) => {
+              const msgTime = Math.floor(new Date(m.createdAt).getTime() / 1000);
+              const signature = `${m.senderId}-${m.content}-${msgTime}`;
+              return !existingContents.includes(signature);
+            });
+            return [...prev, ...newMsgs];
+          });
+        }
+      } catch (e) {
+        console.error("Parse error:", e);
       }
     };
 
@@ -127,9 +134,10 @@ export default function SocialsPage() {
   }, [search]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !user) return;
+    
     try {
-      await api.post("/global-chat", { content: newMessage });
+      await api.post("/global-chat", { content: newMessage.trim() });
       setNewMessage("");
     } catch (error) {
       console.error("Send error:", error);
@@ -390,21 +398,31 @@ export default function SocialsPage() {
         {/* Chat Area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {activeView === "global" && messages.map((msg) => {
-            const isOwn = msg.senderId === currentUserId;
+            const isOwn = msg.senderId === (currentUserId || user?.id);
             return (
               <div key={msg.id} className={`flex gap-3 ${isOwn ? "flex-row-reverse" : ""}`}>
                 <div className="w-9 h-9 rounded-full bg-white/10 flex-shrink-0 flex items-center justify-center">
-                  {msg.senderImage ? (
+                  {isOwn ? (
+                    user?.image ? (
+                      <img src={user.image} className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      <span className="text-white/60 text-sm font-medium">
+                        {(user?.name || "You").charAt(0)}
+                      </span>
+                    )
+                  ) : msg.senderImage ? (
                     <img src={msg.senderImage} className="w-full h-full rounded-full object-cover" />
                   ) : (
                     <span className="text-white/60 text-sm font-medium">
-                      {msg.senderName?.charAt(0) || "?"}
+                      {(msg.senderName || "?").charAt(0)}
                     </span>
                   )}
                 </div>
                 <div className={`max-w-[70%] ${isOwn ? "text-right" : ""}`}>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-white font-medium text-sm">{msg.senderName || "Unknown"}</span>
+                    <span className="text-white font-medium text-sm">
+                      {isOwn ? (user?.name || "You") : (msg.senderName || msg.senderName === "" ? msg.senderName : "Unknown")}
+                    </span>
                     <span className="text-white/30 text-xs">
                       {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
                     </span>

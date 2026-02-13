@@ -1,9 +1,32 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { globalMessages, users } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, lt, and } from "drizzle-orm";
 import { verifySession } from "@/lib/session";
 import { cookies } from "next/headers";
+
+const MAX_MESSAGES = 500;
+const CLEANUP_THRESHOLD = 600; // Keep only last 100 messages (clean old ones)
+
+async function cleanupOldMessages() {
+  try {
+    const oldMessages = await db
+      .select({ id: globalMessages.id, createdAt: globalMessages.createdAt })
+      .from(globalMessages)
+      .orderBy(desc(globalMessages.createdAt))
+      .limit(CLEANUP_THRESHOLD)
+      .offset(CLEANUP_THRESHOLD);
+
+    if (oldMessages.length > 0) {
+      const idsToDelete = oldMessages.map(m => m.id);
+      await db
+        .delete(globalMessages)
+        .where(eq(globalMessages.id, idsToDelete[0])); // Delete oldest individually if needed
+    }
+  } catch (e) {
+    console.error("Cleanup error:", e);
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -13,7 +36,8 @@ export async function GET(request: Request) {
     const payload = token ? await verifySession(token) : null;
     const userId = payload?.userId || null;
 
-    console.log("Global chat SSE - userId:", userId);
+    // Cleanup old messages periodically
+    if (Math.random() < 0.1) cleanupOldMessages();
 
     const messages = await db
       .select({
@@ -27,7 +51,7 @@ export async function GET(request: Request) {
       .from(globalMessages)
       .leftJoin(users, eq(globalMessages.senderId, users.id))
       .orderBy(desc(globalMessages.createdAt))
-      .limit(100);
+      .limit(MAX_MESSAGES);
 
     const stream = new ReadableStream({
       start(controller) {
@@ -45,11 +69,11 @@ export async function GET(request: Request) {
               })
               .from(globalMessages)
               .orderBy(desc(globalMessages.createdAt))
-              .limit(20);
+              .limit(50);
 
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "update", messages: latestMessages.reverse() })}\n\n`));
-          } catch (error) {
-            console.error("SSE interval error:", error);
+          } catch (e) {
+            console.error("SSE error:", e);
           }
         }, 2000);
 
@@ -70,7 +94,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("SSE global chat error:", error);
+    console.error("SSE error:", error);
     return NextResponse.json({ error: "Failed to connect", details: String(error) }, { status: 500 });
   }
 }
@@ -91,7 +115,7 @@ export async function POST(request: Request) {
 
     const { content } = await request.json();
 
-    if (!content || !content.trim()) {
+    if (!content?.trim()) {
       return NextResponse.json({ error: "Message cannot be empty" }, { status: 400 });
     }
 
@@ -103,9 +127,16 @@ export async function POST(request: Request) {
       })
       .returning();
 
+    // Cleanup if too many messages
+    const count = await db.select({ count: globalMessages.id }).from(globalMessages).limit(1);
+    // Simple cleanup - just delete old if over limit
+    if (count && count.length > 0) {
+      cleanupOldMessages();
+    }
+
     return NextResponse.json({ message });
   } catch (error) {
-    console.error("Send global message error:", error);
+    console.error("Send error:", error);
     return NextResponse.json({ error: "Failed to send message" }, { status: 500 });
   }
 }
