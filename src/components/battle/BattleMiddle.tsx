@@ -403,7 +403,7 @@ export default function BattleMiddle({
                 </div>
                 <div className={cn(
                     "text-4xl font-black text-white font-mono tracking-tighter transition-all duration-300 z-10",
-                    timeLeftIsCritical ? "text-primary text-5xl scale-110 drop-shadow-[0_0_20px_rgba(222,41,41,0.8)]" : "drop-shadow-[0_0_15px_rgba(222,41,41,0.3)]"
+                    timeLeftIsCritical ? "text-primary text-5xl scale-110 drop-shadow-[0_0_25px_rgba(222,41,41,0.6)]" : "drop-shadow-[0_0_15px_rgba(222,41,41,0.3)]"
                 )}>
                     {timeLeft}
                 </div>
