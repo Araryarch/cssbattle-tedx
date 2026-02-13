@@ -1,9 +1,10 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { useCurrentUser } from "@/lib/hooks/useAuth";
+import { useCurrentUser } from "@/lib/hooks/useAuth"; 
 import { useQueryClient } from "@tanstack/react-query";
 import { authKeys } from "@/lib/hooks/useAuth";
+import { authClient } from "@/lib/auth-client";
 
 type User = {
   id: string;
@@ -27,18 +28,22 @@ const UserContext = createContext<UserContextType>({
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const { data: user, isLoading, refetch } = useCurrentUser();
+  const { data: session, isPending, error } = authClient.useSession();
   const queryClient = useQueryClient();
 
   const refreshUser = async () => {
-    await queryClient.invalidateQueries({ queryKey: authKeys.user });
+     // Better Auth handles auto-refresh, but we can structure this to match context type 
+     // or force a re-fetch if supported by the client in future
   };
 
   return (
     <UserContext.Provider
       value={{
-        user: user ?? null,
-        loading: isLoading,
+        user: session?.user ? { 
+            ...session.user, 
+            role: (session.user as any).role || "user"
+        } : null,
+        loading: isPending,
         refreshUser,
       }}
     >

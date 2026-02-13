@@ -1,33 +1,38 @@
-import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
-
-const JWT_SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || "default_secret_please_change");
-const ALG = "HS256";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export type SessionPayload = {
     userId: string;
     email: string;
     role: "admin" | "user";
     isAuth: boolean;
+    image?: string | null;
+    name?: string | null;
     [key: string]: any;
 };
 
 export async function signSession(payload: any): Promise<string> {
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: ALG })
-    .setIssuedAt()
-    .setExpirationTime("7d") // Session valid for 7 days
-    .sign(JWT_SECRET);
+  // Deprecated or used for legacy? Keeping blank or throwing to find usage.
+  // Better Auth handles session signing.
+  return ""; 
 }
 
 export async function verifySession(token?: string): Promise<SessionPayload | null> {
-  const cookieStore = await cookies();
-  const tokenToVerify = token || cookieStore.get("auth-token")?.value;
-
-  if (!tokenToVerify) return null;
   try {
-    const { payload } = await jwtVerify(tokenToVerify, JWT_SECRET);
-    return payload as SessionPayload;
+    const session = await auth.api.getSession({
+        headers: await headers()
+    });
+
+    if (!session) return null;
+
+    return {
+        userId: session.user.id,
+        email: session.user.email,
+        role: (session.user as any).role || "user", // Type assertion until fully typed
+        isAuth: true,
+        image: session.user.image,
+        name: session.user.name,
+    };
   } catch (error) {
     return null;
   }

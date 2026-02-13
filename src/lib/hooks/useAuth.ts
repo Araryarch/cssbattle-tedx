@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import api from "@/lib/axios";
+import { authClient } from "@/lib/auth-client";
 
 // ─── Types ───────────────────────────────────────────────
 export type User = {
@@ -9,33 +9,6 @@ export type User = {
   image?: string | null;
   isVerified?: boolean;
   role?: "admin" | "user" | null;
-};
-
-// ─── API Functions ───────────────────────────────────────
-const fetchCurrentUser = async (): Promise<User | null> => {
-  const { data } = await api.get("/auth/me");
-  return data.user ?? null;
-};
-
-const loginUser = async (credentials: {
-  email: string;
-  password: string;
-}): Promise<any> => {
-  const { data } = await api.post("/auth/login", credentials);
-  return data;
-};
-
-const registerUser = async (userData: {
-  name: string;
-  email: string;
-  password: string;
-}): Promise<any> => {
-  const { data } = await api.post("/auth/register", userData);
-  return data;
-};
-
-const logoutUser = async (): Promise<void> => {
-  await api.post("/auth/logout");
 };
 
 // ─── Query Keys ──────────────────────────────────────────
@@ -49,12 +22,17 @@ export const authKeys = {
  * Fetch currently authenticated user
  */
 export function useCurrentUser() {
-  return useQuery({
-    queryKey: authKeys.user,
-    queryFn: fetchCurrentUser,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: false,
-  });
+  const { data: session, isPending, error } = authClient.useSession();
+  
+  return {
+    data: session?.user ? { 
+        ...session.user, 
+        role: (session.user as any).role || "user" 
+    } : null,
+    isLoading: isPending,
+    error,
+    refetch: async () => {}, // Better Auth handles revalidation
+  };
 }
 
 /**
@@ -64,9 +42,16 @@ export function useLogin() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: loginUser,
+    mutationFn: async (credentials: { email: string; password: string }) => {
+        const { data, error } = await authClient.signIn.email({
+            email: credentials.email,
+            password: credentials.password,
+        });
+        if (error) throw error;
+        return data;
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: authKeys.user });
+      // queryClient.invalidateQueries({ queryKey: authKeys.user }); // Not needed with useSession
     },
   });
 }
@@ -76,7 +61,15 @@ export function useLogin() {
  */
 export function useRegister() {
   return useMutation({
-    mutationFn: registerUser,
+    mutationFn: async (userData: { name: string; email: string; password: string }) => {
+        const { data, error } = await authClient.signUp.email({
+            email: userData.email,
+            password: userData.password,
+            name: userData.name,
+        });
+        if (error) throw error;
+        return data;
+    },
   });
 }
 
@@ -87,10 +80,14 @@ export function useLogout() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: logoutUser,
+    mutationFn: async () => {
+        await authClient.signOut();
+    },
     onSuccess: () => {
       queryClient.setQueryData(authKeys.user, null);
       queryClient.clear();
+      // Force reload or redirect might be needed
+      window.location.href = "/login";
     },
   });
 }
