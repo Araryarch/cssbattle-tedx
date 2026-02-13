@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Trophy, Users, LogOut, Flag, Zap, Eye, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useLogout } from "@/lib/hooks";
+import { useLogout } from "@/lib/hooks/useAuth";
+import AdminGuard from "@/components/AdminGuard";
 
 const sidebarItems = [
   {
@@ -58,6 +59,7 @@ export default function AdminLayout({
   const logoutMutation = useLogout();
 
   return (
+    <AdminGuard>
     <div className="flex h-screen bg-black text-white overflow-hidden">
       {/* Sidebar */}
       <aside className="w-64 border-r border-white/5 bg-zinc-900/50 flex flex-col">
@@ -112,5 +114,6 @@ export default function AdminLayout({
         </div>
       </main>
     </div>
+    </AdminGuard>
   );
 }

@@ -3,7 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 
-console.log("Initializing better-auth with schema tables:", Object.keys(schema));
+
 
 export const auth = betterAuth({
     database: drizzleAdapter(db, {
@@ -25,4 +25,15 @@ export const auth = betterAuth({
         enabled: true,
     },
     baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+    callbacks: {
+        session: async ({ session, user }: { session: any, user: any }) => {
+            return {
+                ...session,
+                user: {
+                    ...user,
+                    role: user.role, // Ensure role is passed
+                },
+            };
+        },
+    },
 });
