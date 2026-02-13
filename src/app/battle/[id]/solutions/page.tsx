@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getChallengeSolutionsAction } from "@/lib/submission-actions";
+import { getChallengeSolutionsAction, unlockSolutionsAction } from "@/lib/submission-actions";
 import { getChallengeAction } from "@/lib/challenge-actions";
-import { Loader2, ArrowLeft, Trophy, Lock, Eye, Target, CalendarDays, Code, Hash, Clock, MessageSquare } from "lucide-react";
+import { Loader2, ArrowLeft, Trophy, Lock, Eye, Target, CalendarDays, Code, Hash, Clock, MessageSquare, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import SubmissionViewer from "@/components/admin/SubmissionViewer";
+import ConfirmationModal from "@/components/ui/ConfirmationModal";
+import { toast } from "sonner";
 
 interface Solution {
   id: string;
@@ -31,10 +33,12 @@ export default function BattleSolutionsPage() {
   const [challenge, setChallenge] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+  const [authReason, setAuthReason] = useState<string | null>(null);
   const [selectedSolution, setSelectedSolution] = useState<any>(null);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [isUnlocking, startTransition] = useTransition();
 
-  useEffect(() => {
-    async function init() {
+  async function loadData() {
         setLoading(true);
         try {
             const [challengesResult, solutionsResult] = await Promise.all([
@@ -48,6 +52,7 @@ export default function BattleSolutionsPage() {
                 setSolutions(solutionsResult.solutions.map(s => ({ ...s, createdAt: new Date(s.createdAt) })));
             } else {
                 setAuthorized(false);
+                setAuthReason(solutionsResult.reason || null);
             }
         } catch (e) {
             console.error("Failed to load solutions", e);
@@ -55,8 +60,23 @@ export default function BattleSolutionsPage() {
             setLoading(false);
         }
     }
-    init();
+
+  useEffect(() => {
+    loadData();
   }, [challengeId]);
+
+  const handleUnlock = () => {
+      startTransition(async () => {
+          const res = await unlockSolutionsAction(challengeId);
+          if (res.success) {
+              toast.success("Solutions unlocked. You will not earn points for this challenge.");
+              setShowUnlockModal(false);
+              loadData(); // Reload to get solutions
+          } else {
+              toast.error(res.error || "Failed to unlock solutions");
+          }
+      });
+  };
 
   if (loading) {
       return (
@@ -67,6 +87,29 @@ export default function BattleSolutionsPage() {
   }
 
   if (!authorized) {
+      if (authReason === "Contest in progress") {
+           return (
+            <div className="min-h-screen bg-[#050505] p-8 flex flex-col items-center justify-center text-center space-y-6 animate-in fade-in duration-500">
+                <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mb-4 border border-red-500/20">
+                    <Lock className="w-10 h-10 text-red-500" />
+                </div>
+                <h1 className="text-3xl font-black text-white">
+                    Contest in Progress
+                </h1>
+                <p className="text-zinc-500 max-w-md">
+                    Solutions are hidden while the contest is active to ensure fair play. 
+                    Come back after the contest ends!
+                </p>
+                <Link 
+                    href={`/contest/${challenge?.contestId || ""}`}
+                    className="px-6 py-3 bg-white text-black font-bold uppercase tracking-widest rounded-lg hover:bg-zinc-200 transition-colors"
+                >
+                    View Contest
+                </Link>
+            </div>
+           );
+      }
+
       return (
         <div className="min-h-screen bg-[#050505] p-8 flex flex-col items-center justify-center text-center space-y-6 animate-in fade-in duration-500">
              <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-4 border border-white/5">
@@ -76,14 +119,33 @@ export default function BattleSolutionsPage() {
                  Solutions Locked
              </h1>
              <p className="text-zinc-500 max-w-md">
-                 You must solve this challenge first to view other players' solutions. Go back and give it your best shot!
+                 You haven't solved this challenge yet! viewing the solutions is the best way to learn, but we recommend you to try harder first
              </p>
-             <Link 
-                href={`/battle/${challengeId}`}
-                className="px-6 py-3 bg-white text-black font-bold uppercase tracking-widest rounded-lg hover:bg-zinc-200 transition-colors"
-             >
-                Start Battle
-             </Link>
+             <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
+                 <Link 
+                    href={`/battle/${challengeId}`}
+                    className="flex-1 px-6 py-3 bg-white text-black font-bold uppercase tracking-widest rounded-lg hover:bg-zinc-200 transition-colors text-xs flex items-center justify-center"
+                 >
+                    Start Battle
+                 </Link>
+                 <button
+                    onClick={() => setShowUnlockModal(true)}
+                    className="flex-1 px-6 py-3 bg-white/5 text-zinc-400 font-bold uppercase tracking-widest rounded-lg hover:bg-white/10 hover:text-white transition-colors text-xs flex items-center justify-center border border-white/5"
+                 >
+                    Uncover Solutions
+                 </button>
+             </div>
+             
+             <ConfirmationModal 
+                isOpen={showUnlockModal}
+                onClose={() => setShowUnlockModal(false)}
+                onConfirm={handleUnlock}
+                title="Unlock Solutions?"
+                description="Warning: If you view the solutions now, you will NOT earn any points for this challenge in the future, even if you solve it correctly later. Are you sure you want to proceed?"
+                confirmLabel="Yes, Unlock & Forfeit Points"
+                cancelLabel="No, I'll Try Solving It"
+                isLoading={isUnlocking}
+             />
         </div>
       );
   }
@@ -110,6 +172,9 @@ export default function BattleSolutionsPage() {
                 {solutions.length} submissions found
             </div>
         </div>
+
+        {/* Unlock Warning Banner (if authorized but with 0 score/unlocked) - Optional logic */}
+        {/* We assume if they are authorized, they either solved it OR unlocked it. */}
 
         {/* Solutions List (Cards) */}
         <div className="flex flex-col gap-4 max-w-5xl mx-auto">

@@ -7,6 +7,7 @@ import { Challenge } from "@/lib/challenges";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { getChallengesAction } from "@/lib/actions";
+import { toast } from "sonner";
 
 interface ContestFormProps {
   initialData?: Contest;
@@ -42,11 +43,12 @@ export default function ContestForm({ initialData }: ContestFormProps) {
     setLoading(true);
     try {
       await saveContestAction(formData);
+      toast.success(initialData ? "Contest updated successfully" : "Contest created successfully");
       router.push("/admin/contests");
       router.refresh();
     } catch (error) {
       console.error(error);
-      alert("Failed to save contest");
+      toast.error("Failed to save contest");
     } finally {
       setLoading(false);
     }

@@ -118,9 +118,12 @@ export default function ContestsPage() {
                                             Enter Arena <ArrowRight className="w-4 h-4" />
                                         </Link>
                                     ) : isUpcoming ? (
-                                        <button disabled className="w-full md:w-auto px-6 py-3 bg-white/5 text-white/40 text-sm font-bold tracking-wider uppercase rounded-xl cursor-not-allowed">
-                                            Coming Soon
-                                        </button>
+                                        <Link 
+                                            href={`/contest/${contest.id}`}
+                                            className="flex items-center justify-center gap-2 w-full md:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold tracking-wider uppercase rounded-xl transition-all hover:scale-105"
+                                        >
+                                            Join Now <ArrowRight className="w-4 h-4" />
+                                        </Link>
                                     ) : (
                                         <Link 
                                             href={`/contest/${contest.id}/results`}

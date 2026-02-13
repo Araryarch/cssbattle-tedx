@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { contests, challenges, contestChallenges } from "@/db/schema";
-import { eq, asc, inArray } from "drizzle-orm";
+import { contests, challenges, contestChallenges, contestParticipants } from "@/db/schema";
+import { eq, asc, inArray, and } from "drizzle-orm";
+import { cookies } from "next/headers";
+import { verifySession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,21 @@ export async function GET(
     const contest = await db.query.contests.findFirst({
       where: eq(contests.id, contestId),
     });
+
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth-token")?.value;
+    const session = await verifySession(token);
+    
+    let isJoined = false;
+    if (session?.userId) {
+        const participant = await db.query.contestParticipants.findFirst({
+            where: and(
+                eq(contestParticipants.contestId, contestId),
+                eq(contestParticipants.userId, session.userId)
+            )
+        });
+        isJoined = !!participant;
+    }
 
     if (!contest) {
       return NextResponse.json({ error: "Contest not found" }, { status: 404 });
@@ -45,6 +62,7 @@ export async function GET(
     return NextResponse.json({
       ...contest,
       challenges: challengesList,
+      isJoined,
     });
   } catch (error) {
     console.error("Error fetching contest:", error);

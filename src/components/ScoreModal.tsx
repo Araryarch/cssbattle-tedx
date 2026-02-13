@@ -11,23 +11,37 @@ interface ScoreModalProps {
     accuracy: number;
     score: number;
   } | null;
+  nextChallengeUrl?: string; // New prop
 }
+
+import { useRouter } from "next/navigation";
 
 export default function ScoreModal({
   isOpen,
   onClose,
   result,
+  nextChallengeUrl,
 }: ScoreModalProps) {
+  const router = useRouter();
+
   if (!result) return null;
+
+  const handleNextChallenge = () => {
+    if (nextChallengeUrl) {
+      onClose();
+      router.push(nextChallengeUrl);
+    }
+  };
 
   return (
     <>
       <AnimatePresence>
         {isOpen && (
-          <div
+            // ... (keep existing wrapper div)
+            <div
             key="modal-container"
             className="fixed inset-0 z-[100] flex items-center justify-center p-6"
-          >
+            >
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -42,6 +56,7 @@ export default function ScoreModal({
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className="relative w-full max-w-md glass border border-white/10 rounded-3xl overflow-hidden shadow-2xl"
             >
+              {/* ... (keep header and content) */}
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary animate-gradient" />
 
               <div className="p-8 text-center">
@@ -86,7 +101,15 @@ export default function ScoreModal({
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  <button className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-white/90 transition-all flex items-center justify-center gap-2">
+                  <button 
+                    onClick={handleNextChallenge}
+                    disabled={!nextChallengeUrl}
+                    className={`w-full py-4 font-black rounded-xl transition-all flex items-center justify-center gap-2 ${
+                        nextChallengeUrl 
+                        ? 'bg-white text-black hover:bg-white/90 cursor-pointer' 
+                        : 'bg-white/10 text-white/30 cursor-not-allowed'
+                    }`}
+                  >
                     NEXT CHALLENGE <ChevronRight className="w-5 h-5" />
                   </button>
                   <div className="flex gap-3">

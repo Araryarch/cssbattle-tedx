@@ -1,5 +1,9 @@
+"use client";
+
 import { Info } from "lucide-react";
 import { Challenge } from "@/lib/challenges";
+import { useState } from "react";
+import ConfirmationModal from "@/components/ui/ConfirmationModal";
 
 interface BattleSidebarProps {
   challenge?: Challenge;
@@ -12,6 +16,15 @@ export default function BattleSidebar({
   unlockedTips,
   onUnlockTip,
 }: BattleSidebarProps) {
+  const [tipToUnlock, setTipToUnlock] = useState<number | null>(null);
+
+  const handleUnlockConfirm = () => {
+    if (tipToUnlock !== null) {
+        onUnlockTip(tipToUnlock);
+        setTipToUnlock(null);
+    }
+  };
+
   return (
     <div className="absolute bottom-6 left-6 right-auto flex flex-col gap-2 max-w-xs z-50">
       {/* Color Palette */}
@@ -29,7 +42,8 @@ export default function BattleSidebar({
                 style={{ backgroundColor: color }}
                 title={`Copy ${color}`}
               >
-                <span className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-black text-white text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap">
+                <div style={{ backgroundColor: color }} className="w-full h-full" />
+                <span className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-black text-white text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap z-[60]">
                   {color}
                 </span>
               </button>
@@ -74,11 +88,7 @@ export default function BattleSidebar({
                   <p className="text-[11px] text-zinc-300 font-mono leading-snug">{tip}</p>
                 ) : (
                   <button
-                    onClick={() => {
-                      if (confirm("Revealing this hint will cost 50 points. Are you sure?")) {
-                        onUnlockTip(idx);
-                      }
-                    }}
+                    onClick={() => setTipToUnlock(idx)}
                     className="w-full text-left text-[10px] font-bold text-yellow-500 hover:text-yellow-400 uppercase tracking-wider flex items-center gap-2"
                   >
                     <Info className="w-3 h-3" /> Unlock Hint (-50pts)
@@ -89,6 +99,15 @@ export default function BattleSidebar({
           })}
         </div>
       )}
+
+      <ConfirmationModal 
+          isOpen={tipToUnlock !== null}
+          onClose={() => setTipToUnlock(null)}
+          onConfirm={handleUnlockConfirm}
+          title="Unlock Hint"
+          description="Are you sure you want to reveal this hint? It will cost 50 points deducted from your potential score."
+          confirmLabel="Unlock Hint"
+      />
     </div>
   );
 }

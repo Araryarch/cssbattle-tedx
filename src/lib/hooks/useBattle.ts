@@ -30,7 +30,7 @@ const DEFAULT_CODE = `<div></div>
 
 <!-- IMPORTANT: remove the comments before submitting -->`;
 
-export function useBattle(id: string, user: { id?: string; name?: string | null } | null) {
+export function useBattle(id: string, user: { id?: string; name?: string | null } | null, contestId?: string) {
   // --- Core State ---
   const [challenge, setChallenge] = useState<Challenge | undefined>(undefined);
   const [stats, setStats] = useState<ChallengeStats | null>(null);
@@ -49,6 +49,8 @@ export function useBattle(id: string, user: { id?: string; name?: string | null 
   const [userStats, setUserStats] = useState<{
     best: { score: number; accuracy: number; chars: number; duration: number } | null;
     latest: { score: number; accuracy: number; chars: number; duration: number } | null;
+    isUnlocked?: boolean; // New field
+    isSolved?: boolean; // New field
   } | null>(null);
 
   // --- Refs ---
@@ -73,6 +75,7 @@ export function useBattle(id: string, user: { id?: string; name?: string | null 
             challengeId: id,
             challengeTitle: challenge?.title || `Challenge #${id}`,
             code: currentCode,
+            contestId,
           }),
         }).catch(() => {});
       }, 500);
@@ -225,6 +228,17 @@ export function useBattle(id: string, user: { id?: string; name?: string | null 
             }
         });
     }
+
+    // Refetch on visibility change (re-focus)
+    const onVisibilityChange = () => {
+        if (document.visibilityState === 'visible' && user?.id) {
+             getUserChallengeStatsAction(id).then((stats) => {
+                if (stats) setUserStats(stats);
+            });
+        }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, [id, user?.id]);
 
   // --- Memos ---
@@ -282,6 +296,10 @@ export function useBattle(id: string, user: { id?: string; name?: string | null 
     setCode(challenge?.defaultCode || DEFAULT_CODE);
   }, [challenge?.defaultCode]);
 
+  const markAsUnlocked = useCallback(() => {
+     setUserStats(prev => prev ? { ...prev, isUnlocked: true, isSolved: true } : { best: null, latest: null, isUnlocked: true, isSolved: true });
+  }, []);
+
   return {
     // State
     challenge, stats, code, showTarget, opacity, viewMode,
@@ -293,12 +311,13 @@ export function useBattle(id: string, user: { id?: string; name?: string | null 
     setIsModalOpen, setTestResult, setUnlockedTips,
 
     // Handlers
-    handleTest, handleSubmit, handleCodeChange, resetCode, formatTime,
+    handleTest, handleSubmit, handleCodeChange, resetCode, formatTime, markAsUnlocked,
 
     // Memos
     previewDoc, targetDocSrc,
 
     // Refs (for hidden iframes)
     hiddenUserIframeRef, hiddenTargetIframeRef,
+    contestId // Return it so consumers verify it
   };
 }

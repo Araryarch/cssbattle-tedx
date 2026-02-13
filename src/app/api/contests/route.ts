@@ -10,7 +10,6 @@ export async function GET() {
     const result = await db
       .select()
       .from(contests)
-      .where(eq(contests.isActive, true))
       .orderBy(desc(contests.startTime));
 
     return NextResponse.json(result);

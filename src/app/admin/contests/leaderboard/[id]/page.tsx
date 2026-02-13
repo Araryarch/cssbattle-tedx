@@ -1,9 +1,10 @@
 import { db } from "@/db";
-import { contests, submissions, users, contestChallenges } from "@/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { contests, contestChallenges } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { ArrowLeft, Trophy, Crown, Medal } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { getContestLeaderboardAction } from "@/lib/submission-actions";
 
 // Type for the leaderboard entry
 type LeaderboardEntry = {
@@ -16,7 +17,8 @@ type LeaderboardEntry = {
   lastSubmissionTime: Date;
 };
 
-export default async function ContestLeaderboardPage({ params }: { params: { id: string } }) {
+export default async function ContestLeaderboardPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const contestId = params.id;
 
   // 1. Get contest details to display info
@@ -28,103 +30,27 @@ export default async function ContestLeaderboardPage({ params }: { params: { id:
     return <div className="p-8 text-white">Contest not found</div>;
   }
 
-  // 2. Get all challenges in this contest
-  const contestChallengeLinks = await db
-    .select({ challengeId: contestChallenges.challengeId })
-    .from(contestChallenges)
-    .where(eq(contestChallenges.contestId, contestId));
-  
-  const challengeIds = contestChallengeLinks.map(c => c.challengeId);
+  // 2. Fetch leaderboard using shared action (includes sync logic)
+  const leaderboardData = await getContestLeaderboardAction(contestId);
 
-  // 3. Fetch submissions for these challenges, during contest time (optional constraint, but good for real contests)
-  // For now, let's just get best submission per user per challenge
-  
-  // Complexity: We need sum of best scores per user for the specific challenges in the contest
-  
-  // Approach:
-  // - Get all submissions for challenges in this contest
-  // - Group by user and challenge to find max score per challenge
-  // - Then sum those max scores per user
-  
-  // This might be heavy in pure SQL for some ORMs, so we might do some processing in JS or complex query
-  // Let's try a raw SQL or a query builder approach if Drizzle supports it easily.
-  
-  // Simplified JS processing approach for clarity and "hackathon" speed:
-  // Fetch valid submissions
-  const allSubmissions = await db
-    .select({
-      userId: submissions.userId,
-      score: submissions.score,
-      challengeId: submissions.challengeId,
-      createdAt: submissions.createdAt,
-      userName: users.name,
-      userImage: users.image,
-    })
-    .from(submissions)
-    .leftJoin(users, eq(submissions.userId, users.id))
-    .where(and(
-        // In SQL IN clause needs at least one element or it fails/returns empty. Handle empty challengeIds.
-        challengeIds.length > 0 ? sql`${submissions.challengeId} IN ${challengeIds}` : sql`1=0`
-    ));
+  const leaderboard: LeaderboardEntry[] = leaderboardData.map((entry) => ({
+    rank: entry.rank,
+    userId: entry.userId,
+    userName: entry.userName || "Anonymous",
+    userImage: entry.userImage,
+    totalScore: entry.totalScore,
+    challengesCompleted: entry.challengesSolved || 0,
+    lastSubmissionTime: entry.lastSubmissionAt
+  }));
 
-  // Process to find best score per challenge per user
-  const userBestScores: Record<string, { [challengeId: string]: number }> = {};
-  const userDetails: Record<string, { name: string, image: string | null, lastSub: Date }> = {};
-
-  allSubmissions.forEach(sub => {
-    if (!sub.userId || !sub.userName) return;
-
-    if (!userBestScores[sub.userId]) {
-      userBestScores[sub.userId] = {};
-      userDetails[sub.userId] = { 
-          name: sub.userName, 
-          image: sub.userImage,
-          lastSub: sub.createdAt
-      };
-    }
-
-    const currentScore = parseFloat(sub.score);
-    const existingBest = userBestScores[sub.userId][sub.challengeId] || 0;
-
-    if (currentScore > existingBest) {
-      userBestScores[sub.userId][sub.challengeId] = currentScore;
-    }
-    
-    // Track latest submission for tie-breaking
-    if (sub.createdAt > userDetails[sub.userId].lastSub) {
-        userDetails[sub.userId].lastSub = sub.createdAt;
-    }
-  });
-
-  // Calculate totals
-  const leaderboard: LeaderboardEntry[] = Object.keys(userBestScores).map(userId => {
-    const scores = Object.values(userBestScores[userId]);
-    const totalScore = scores.reduce((a, b) => a + b, 0);
-    const completed = scores.length; // Number of challenges attempted/scored > 0
-
-    return {
-      rank: 0, // Assigned after sort
-      userId,
-      userName: userDetails[userId].name,
-      userImage: userDetails[userId].image,
-      totalScore,
-      challengesCompleted: completed,
-      lastSubmissionTime: userDetails[userId].lastSub
-    };
-  });
-
-  // Sort: High score first, then earlier submission time for ties
-  leaderboard.sort((a, b) => {
-    if (b.totalScore !== a.totalScore) {
-      return b.totalScore - a.totalScore;
-    }
-    return a.lastSubmissionTime.getTime() - b.lastSubmissionTime.getTime();
-  });
-
-  // Assign ranks
-  leaderboard.forEach((entry, index) => {
-    entry.rank = index + 1;
-  });
+    // Calculate stats for header
+    const totalParticipants = leaderboard.length;
+    // We can get challenge count separately
+    const challengeCountResult = await db
+        .select({ count: contestChallenges.challengeId })
+        .from(contestChallenges)
+        .where(eq(contestChallenges.contestId, contestId));
+    const challengeCount = challengeCountResult.length;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-8">
@@ -145,11 +71,11 @@ export default async function ContestLeaderboardPage({ params }: { params: { id:
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-6">
                 <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest block mb-2">Total Participants</span>
-                <span className="text-3xl font-black">{leaderboard.length}</span>
+                <span className="text-3xl font-black">{totalParticipants}</span>
             </div>
              <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-6">
                 <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest block mb-2">Challenges</span>
-                <span className="text-3xl font-black">{challengeIds.length}</span>
+                <span className="text-3xl font-black">{challengeCount}</span>
             </div>
              <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-6">
                 <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest block mb-2">End Time</span>
@@ -194,7 +120,7 @@ export default async function ContestLeaderboardPage({ params }: { params: { id:
                     </div>
                   </td>
                   <td className="p-4 text-right font-mono text-zinc-400">
-                      {entry.challengesCompleted} / {challengeIds.length}
+                      {entry.challengesCompleted} / {challengeCount}
                   </td>
                   <td className="p-4 text-right">
                       <span className="inline-block px-3 py-1 bg-green-500/10 text-green-400 rounded-full text-sm font-bold font-mono">

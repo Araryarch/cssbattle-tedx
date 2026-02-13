@@ -9,6 +9,7 @@ import {
   boolean,
   pgEnum,
   AnyPgColumn,
+  real,
 } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "user"]);
@@ -56,6 +57,20 @@ export const submissions = pgTable("submissions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// New table to track if a user unlocked solutions without solving
+export const unlockedSolutions = pgTable("unlocked_solutions", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  challengeId: varchar("challenge_id", { length: 50 })
+    .notNull()
+    .references(() => challenges.id, { onDelete: "cascade" }),
+  unlockedAt: timestamp("unlocked_at").defaultNow().notNull(),
+});
+
 export const contests = pgTable("contests", {
   id: text("id")
     .primaryKey()
@@ -84,6 +99,24 @@ export const contestChallenges = pgTable(
     {
       pk: primaryKey({ columns: [t.contestId, t.challengeId] }),
     },
+  ]
+);
+
+export const contestParticipants = pgTable(
+  "contest_participants",
+  {
+    contestId: text("contest_id")
+      .notNull()
+      .references(() => contests.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  },
+  (t) => [
+    {
+        pk: primaryKey({ columns: [t.contestId, t.userId] }),
+    }
   ]
 );
 
@@ -214,3 +247,33 @@ export const voiceParticipants = pgTable("voice_participants", {
   isMuted: boolean("is_muted").default(false).notNull(),
   isCameraOn: boolean("is_camera_on").default(false).notNull(),
 });
+
+export const contestSolutions = pgTable("contest_solutions", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  contestId: text("contest_id").notNull().references(() => contests.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  challengeId: varchar("challenge_id", { length: 50 }).notNull().references(() => challenges.id, { onDelete: "cascade" }),
+  code: text("code").notNull(),
+  accuracy: text("accuracy").notNull(),
+  score: text("score").notNull(),
+  duration: integer("duration").default(0),
+  chars: integer("chars"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const contestLeaderboard = pgTable(
+  "contest_leaderboard",
+  {
+    contestId: text("contest_id").notNull().references(() => contests.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    totalScore: real("total_score").notNull().default(0),
+    rank: integer("rank").default(0),
+    challengesSolved: integer("challenges_solved").default(0),
+    lastSubmissionAt: timestamp("last_submission_at").defaultNow().notNull(),
+  },
+  (t) => [
+      {
+          pk: primaryKey({ columns: [t.contestId, t.userId] }),
+      }
+  ]
+);

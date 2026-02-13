@@ -35,6 +35,113 @@ interface SubmissionViewerProps {
   onClose: () => void;
 }
 
+// Extracted CommentNode to prevent re-renders losing focus
+const CommentNode = ({ 
+    comment, 
+    allComments, 
+    replyingTo, 
+    setReplyingTo, 
+    replyContent, 
+    setReplyContent, 
+    handlePostComment,
+    posting
+}: { 
+    comment: Comment, 
+    allComments: Comment[],
+    replyingTo: string | null,
+    setReplyingTo: (id: string | null) => void,
+    replyContent: string,
+    setReplyContent: (content: string) => void,
+    handlePostComment: (parentId: string) => void,
+    posting: boolean
+}) => {
+    const getReplies = (parentId: string) => allComments.filter(c => c.parentId === parentId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const replies = getReplies(comment.id);
+    
+    return (
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 group">
+        <div className="flex gap-4">
+             <div className="w-8 h-8 rounded-full bg-white/10 overflow-hidden shrink-0 mt-1 ring-2 ring-black">
+                 {comment.userImage ? (
+                    <img src={comment.userImage} className="w-full h-full object-cover" alt={comment.userName || "User"} />
+                 ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-400">
+                        {comment.userName?.charAt(0)}
+                    </div>
+                 )}
+            </div>
+            <div className="flex-1 max-w-3xl">
+                <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-bold text-white/90">{comment.userName || "Anonymous"}</span>
+                    <span className="text-[10px] text-zinc-600 font-mono">
+                        {new Date(comment.createdAt).toLocaleDateString()}
+                    </span>
+                </div>
+                <div className="text-sm text-zinc-300 bg-white/5 p-3 rounded-2xl rounded-tl-none border border-white/5 relative group-hover:bg-white/10 transition-colors">
+                   {comment.content}
+                </div>
+                
+                <div className="flex items-center gap-4 mt-2 ml-1">
+                    <button 
+                        onClick={() => {
+                            setReplyingTo(replyingTo === comment.id ? null : comment.id);
+                            // Focus handling is managed by effect or autoFocus, but manual focus is good too
+                            if (replyingTo !== comment.id) {
+                                setTimeout(() => document.getElementById(`reply-input-${comment.id}`)?.focus(), 50);
+                            }
+                        }}
+                        className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-white flex items-center gap-1 transition-colors"
+                    >
+                        <Reply className="w-3 h-3" /> Reply
+                    </button>
+                </div>
+
+                {/* Nested Content (Replies + Input) */}
+                {(replies.length > 0 || replyingTo === comment.id) && (
+                     <div className="pl-6 mt-3 space-y-3 relative before:absolute before:left-2 before:top-0 before:bottom-0 before:w-px before:bg-white/10">
+                        {replies.map(r => (
+                            <CommentNode 
+                                key={r.id} 
+                                comment={r} 
+                                allComments={allComments}
+                                replyingTo={replyingTo}
+                                setReplyingTo={setReplyingTo}
+                                replyContent={replyContent}
+                                setReplyContent={setReplyContent}
+                                handlePostComment={handlePostComment}
+                                posting={posting}
+                            />
+                        ))}
+                        
+                        {replyingTo === comment.id && (
+                             <div className="mt-2 flex gap-2 animate-in fade-in slide-in-from-top-1">
+                                 <CornerDownRight className="w-4 h-4 text-zinc-600 absolute -left-6 top-2" />
+                                <input 
+                                    id={`reply-input-${comment.id}`}
+                                    value={replyContent}
+                                    onChange={(e) => setReplyContent(e.target.value)}
+                                    autoFocus
+                                    onKeyDown={(e) => e.key === 'Enter' && handlePostComment(comment.id)}
+                                    placeholder={`Reply to ${comment.userName}...`}
+                                    className="flex-1 bg-black border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-primary/50"
+                                />
+                                <button 
+                                    onClick={() => handlePostComment(comment.id)}
+                                    disabled={posting || !replyContent.trim()}
+                                    className="p-1.5 bg-primary text-black rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                                >
+                                    <Send className="w-3 h-3" />
+                                </button>
+                             </div>
+                        )}
+                     </div>
+                )}
+            </div>
+        </div>
+      </div>
+    );
+};
+
 export default function SubmissionViewer({
   submission,
   onClose,
@@ -105,77 +212,6 @@ export default function SubmissionViewer({
 
   // Group comments
   const rootComments = comments.filter(c => !c.parentId);
-  const getReplies = (parentId: string) => comments.filter(c => c.parentId === parentId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
-  const CommentNode = ({ comment }: { comment: Comment }) => {
-    const replies = getReplies(comment.id);
-    return (
-      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 group">
-        <div className="flex gap-4">
-             <div className="w-8 h-8 rounded-full bg-white/10 overflow-hidden shrink-0 mt-1 ring-2 ring-black">
-                 {comment.userImage ? (
-                    <img src={comment.userImage} className="w-full h-full object-cover" />
-                 ) : (
-                    <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-400">
-                        {comment.userName?.charAt(0)}
-                    </div>
-                 )}
-            </div>
-            <div className="flex-1 max-w-3xl">
-                <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-bold text-white/90">{comment.userName || "Anonymous"}</span>
-                    <span className="text-[10px] text-zinc-600 font-mono">
-                        {new Date(comment.createdAt).toLocaleDateString()}
-                    </span>
-                </div>
-                <div className="text-sm text-zinc-300 bg-white/5 p-3 rounded-2xl rounded-tl-none border border-white/5 relative group-hover:bg-white/10 transition-colors">
-                   {comment.content}
-                </div>
-                
-                <div className="flex items-center gap-4 mt-2 ml-1">
-                    <button 
-                        onClick={() => {
-                            setReplyingTo(replyingTo === comment.id ? null : comment.id);
-                            if (replyingTo !== comment.id) setTimeout(() => document.getElementById(`reply-input-${comment.id}`)?.focus(), 0);
-                        }}
-                        className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-white flex items-center gap-1 transition-colors"
-                    >
-                        <Reply className="w-3 h-3" /> Reply
-                    </button>
-                </div>
-
-                {/* Nested Content (Replies + Input) */}
-                {(replies.length > 0 || replyingTo === comment.id) && (
-                     <div className="pl-6 mt-3 space-y-3 relative before:absolute before:left-2 before:top-0 before:bottom-0 before:w-px before:bg-white/10">
-                        {replies.map(r => <CommentNode key={r.id} comment={r} />)}
-                        
-                        {replyingTo === comment.id && (
-                             <div className="mt-2 flex gap-2 animate-in fade-in slide-in-from-top-1">
-                                 <CornerDownRight className="w-4 h-4 text-zinc-600 absolute -left-6 top-2" />
-                                <input 
-                                    id={`reply-input-${comment.id}`}
-                                    value={replyContent}
-                                    onChange={(e) => setReplyContent(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handlePostComment(comment.id)}
-                                    placeholder={`Reply to ${comment.userName}...`}
-                                    className="flex-1 bg-black border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-primary/50"
-                                />
-                                <button 
-                                    onClick={() => handlePostComment(comment.id)}
-                                    disabled={posting || !replyContent.trim()}
-                                    className="p-1.5 bg-primary text-black rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-                                >
-                                    <Send className="w-3 h-3" />
-                                </button>
-                             </div>
-                        )}
-                     </div>
-                )}
-            </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -297,7 +333,19 @@ export default function SubmissionViewer({
                             <p className="text-zinc-700 text-xs">Be the first to share your thoughts!</p>
                         </div>
                     ) : (
-                        rootComments.map(comment => <CommentNode key={comment.id} comment={comment} />)
+                        rootComments.map(comment => (
+                            <CommentNode 
+                                key={comment.id} 
+                                comment={comment} 
+                                allComments={comments}
+                                replyingTo={replyingTo}
+                                setReplyingTo={setReplyingTo}
+                                replyContent={replyContent}
+                                setReplyContent={setReplyContent}
+                                handlePostComment={handlePostComment}
+                                posting={posting}
+                            />
+                        ))
                     )}
                 </div>
 

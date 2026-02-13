@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { Zap, Clock, Hash, History, Target } from "lucide-react";
+import { Zap, Clock, Hash, History, Target, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChallengeStats } from "@/lib/hooks/useBattle";
 import { ScoreResult } from "@/lib/scoring";
 import Link from "next/link";
+import ConfirmationModal from "@/components/ui/ConfirmationModal";
+import { unlockSolutionsAction } from "@/lib/submission-actions";
+import { toast } from "sonner";
 
 interface BattleMiddleProps {
   challengeId: string;
@@ -14,8 +17,13 @@ interface BattleMiddleProps {
   userStats: { 
       best: { score: number; accuracy: number; chars: number; duration: number } | null;
       latest: { score: number; accuracy: number; chars: number; duration: number } | null;
+      isUnlocked?: boolean;
+      isSolved?: boolean;
   } | null;
   showTarget: boolean;
+  onUnlockSolutions: () => void;
+  contestId?: string;
+  contestStatus?: "active" | "ended" | "upcoming";
 }
 
 export default function BattleMiddle({
@@ -25,12 +33,17 @@ export default function BattleMiddle({
   stats,
   lastScore,
   userStats,
+  onUnlockSolutions,
+  contestId,
+  contestStatus,
 }: BattleMiddleProps) {
   const [activeTab, setActiveTab] = useState<"your" | "global">("your");
   const [slideEnabled, setSlideEnabled] = useState(true);
   const [isHovering, setIsHovering] = useState(false);
   const [sliderValue, setSliderValue] = useState(50);
   const [showDiff, setShowDiff] = useState(false);
+  const [showSolutionWarning, setShowSolutionWarning] = useState(false);
+  
   /* scaling logic */
   const [scale, setScale] = useState(1);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -50,8 +63,7 @@ export default function BattleMiddle({
       if (wrapperRef.current) {
         const { width } = wrapperRef.current.getBoundingClientRect();
         // Calculate scale to fit 400px width into available space (minus padding)
-        // If width > 400, scale is 1. If width < 400, scale down.
-        const availableWidth = width - 32; // 32px for padding (p-4 = 1rem = 16px * 2)
+        const availableWidth = width - 32; // 32px for padding
         const newScale = Math.min(1, availableWidth / 400);
         setScale(Math.max(0.5, newScale)); // Don't scale too small
       }
@@ -67,7 +79,6 @@ export default function BattleMiddle({
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!slideEnabled || !isHovering || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    // Adjust mouse coord by scale
     const x = (e.clientX - rect.left) / scale; 
     const percent = Math.min(100, Math.max(0, (x / (rect.width / scale)) * 100));
     setSliderValue(percent);
@@ -75,14 +86,39 @@ export default function BattleMiddle({
 
   const handleMouseEnter = () => {
     setIsHovering(true);
-    if (slideEnabled) {
-      document.body.style.cursor = 'col-resize';
-    }
+    if (slideEnabled) document.body.style.cursor = 'col-resize';
   };
 
   const handleMouseLeave = () => {
     setIsHovering(false);
     document.body.style.cursor = '';
+  };
+
+  const isSolved = userStats?.isSolved || (userStats?.best?.accuracy || 0) >= 70;
+  const isUnlocked = userStats?.isUnlocked || false;
+  const canAccessSolutions = isSolved || isUnlocked;
+
+  const handleSolutionsClick = (e: React.MouseEvent) => {
+      if (!canAccessSolutions) {
+          e.preventDefault();
+          setShowSolutionWarning(true);
+      }
+  };
+
+  const proceedToSolutions = async () => {
+      try {
+        const result = await unlockSolutionsAction(challengeId);
+        if (result.success) {
+            onUnlockSolutions(); // Optimistically unlock
+            setShowSolutionWarning(false);
+            window.open(`/battle/${challengeId}/solutions`, '_blank');
+            toast.success("Solutions unlocked! Points forfeited.");
+        } else {
+            toast.error("Failed to unlock solutions");
+        }
+      } catch (error) {
+          toast.error("An error occurred");
+      }
   };
 
   return (
@@ -93,13 +129,22 @@ export default function BattleMiddle({
           Code Output
         </span>
         <div className="flex items-center gap-4">
-          <Link 
-            href={`/battle/${challengeId}/solutions`}
-            className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-white transition-colors group"
-            target="_blank"
-          >
-             <Target className="w-3 h-3 group-hover:text-primary transition-colors" /> Solutions
-          </Link>
+          {(!contestId || (contestId && contestStatus === 'ended')) && (
+            <Link  
+                href={`/battle/${challengeId}/solutions`}
+                onClick={handleSolutionsClick}
+                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-white transition-colors group"
+                target="_blank"
+                title={canAccessSolutions ? "View Solutions" : "Solutions Locked (Solve to view)"}
+            >
+                {canAccessSolutions ? (
+                    <Unlock className="w-3 h-3 text-green-500/70 group-hover:text-green-400 transition-colors" />
+                ) : (
+                    <Lock className="w-3 h-3 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+                )}
+                Solutions
+            </Link>
+          )}
           <div className="w-px h-4 bg-white/10 mx-2 hidden sm:block" />
           <label className="flex items-center gap-2 cursor-pointer group">
             <input
@@ -135,7 +180,7 @@ export default function BattleMiddle({
             className="w-[400px] h-[300px] bg-white rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10 relative select-none origin-center transition-transform duration-200 ease-out"
             style={{ 
                 transform: `scale(${scale})`,
-                marginBottom: `-${(1 - scale) * 150}px`, // Compensate for vertical gap caused by scaling
+                marginBottom: `-${(1 - scale) * 150}px`,
                 marginTop: `-${(1 - scale) * 150}px` 
             }}
             onMouseMove={handleMouseMove}
@@ -181,7 +226,7 @@ export default function BattleMiddle({
                 </div>
             )}
 
-            {/* CSSBattle-style Slider Handle - Only visible when hovering (and not in diff mode) */}
+            {/* Slider Handle */}
             {slideEnabled && isHovering && !showDiff && (
               <div 
                 className="absolute top-0 bottom-0 z-20 cursor-col-resize"
@@ -190,24 +235,15 @@ export default function BattleMiddle({
                   transform: 'translateX(-50%)',
                 }}
               >
-                {/* Vertical Line */}
                 <div className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg" />
-                
-                {/* Circle Handle */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow-xl flex items-center justify-center">
                   <svg className="w-4 h-4 text-zinc-800" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
                     <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
                   </svg>
                 </div>
-
-                {/* Labels */}
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[8px] font-bold text-white bg-black/50 px-1.5 py-0.5 rounded">
-                  TARGET
-                </div>
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[8px] font-bold text-white bg-black/50 px-1.5 py-0.5 rounded">
-                  YOURS
-                </div>
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[8px] font-bold text-white bg-black/50 px-1.5 py-0.5 rounded">TARGET</div>
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[8px] font-bold text-white bg-black/50 px-1.5 py-0.5 rounded">YOURS</div>
               </div>
             )}
         </div>
@@ -215,7 +251,6 @@ export default function BattleMiddle({
 
       {/* Stats Section */}
       <div className="bg-[#0a0a0c] p-4 pt-0">
-        {/* Toggle Buttons */}
         <div className="flex items-center justify-center gap-1 bg-white/5 p-1 rounded-xl mb-4 max-w-xs mx-auto">
              <button 
                 onClick={() => setActiveTab("your")}
@@ -239,7 +274,6 @@ export default function BattleMiddle({
 
         {activeTab === "your" ? (
              <div className="grid grid-cols-2 gap-4">
-                {/* High Score Card */}
                 <div className="bg-white/5 rounded-xl p-3 flex flex-col gap-2 relative overflow-hidden group hover:bg-white/10 transition-colors">
                     <div className="flex items-center justify-between">
                         <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">High Score</span>
@@ -263,7 +297,6 @@ export default function BattleMiddle({
                     </div>
                 </div>
 
-                 {/* Last Score Card */}
                  <div className="bg-white/5 rounded-xl p-3 flex flex-col gap-2 relative overflow-hidden group hover:bg-white/10 transition-colors">
                     <div className="flex items-center justify-between">
                         <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Last Score</span>
@@ -316,6 +349,16 @@ export default function BattleMiddle({
             </div>
         )}
       </div>
+
+      <ConfirmationModal 
+          isOpen={showSolutionWarning}
+          onClose={() => setShowSolutionWarning(false)}
+          onConfirm={proceedToSolutions}
+          title="Solutions Locked"
+          description="You haven't solved this challenge yet. Using solutions to learn is allowed, but you will forfeit points for this challenge if you choose to unlock them. Are you sure you want to proceed?"
+          confirmLabel="Proceed to Unlock"
+          cancelLabel="Cancel"
+      />
     </div>
   );
 }

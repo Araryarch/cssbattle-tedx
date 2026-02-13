@@ -3,10 +3,29 @@
 import Link from "next/link";
 import { Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { useAdminChallenges, useDeleteChallenge } from "@/lib/hooks";
+import { useState } from "react";
+import ConfirmationModal from "@/components/ui/ConfirmationModal";
+import { toast } from "sonner";
 
 export default function AdminChallengesPage() {
   const { data: challenges = [], isLoading } = useAdminChallenges();
   const deleteChallenge = useDeleteChallenge();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const confirmDelete = () => {
+      if (deleteId) {
+          deleteChallenge.mutate(deleteId, {
+              onSuccess: () => {
+                  toast.success("Challenge deleted successfully");
+                  setDeleteId(null);
+              },
+              onError: (err) => {
+                  toast.error("Failed to delete challenge");
+                  console.error(err);
+              }
+          });
+      }
+  };
 
   return (
     <div className="space-y-8">
@@ -78,11 +97,7 @@ export default function AdminChallengesPage() {
                       <Edit className="w-4 h-4" />
                     </Link>
                     <button
-                      onClick={() => {
-                        if (confirm("Are you sure you want to delete this challenge?")) {
-                          deleteChallenge.mutate(challenge.id);
-                        }
-                      }}
+                      onClick={() => setDeleteId(challenge.id)}
                       disabled={deleteChallenge.isPending}
                       className="p-2 hover:bg-red-500/10 rounded-lg text-zinc-400 hover:text-red-400 transition-colors disabled:opacity-50"
                       title="Delete challenge"
@@ -102,6 +117,16 @@ export default function AdminChallengesPage() {
         )}
       </div>
       )}
+
+      <ConfirmationModal
+          isOpen={!!deleteId}
+          onClose={() => setDeleteId(null)}
+          onConfirm={confirmDelete}
+          title="Delete Challenge"
+          description="Are you sure you want to delete this challenge? This action cannot be undone."
+          confirmLabel="Delete Challenge"
+          isLoading={deleteChallenge.isPending}
+      />
     </div>
   );
 }
