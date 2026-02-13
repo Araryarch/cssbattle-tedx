@@ -31,20 +31,87 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
   // WebRTC State
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const processedSignalTimestamps = useRef<Set<number>>(new Set());
+  const pendingCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   
-  // Audio Analysis for Visuals
+  // Audio Analysis
   const [speakingUsers, setSpeakingUsers] = useState<Set<string>>(new Set());
   const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
+  const analysersRef = useRef<Map<string, AnalyserNode>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
+  const isMutedRef = useRef(isMuted);
 
-  // Initialize Local Media (Audio Only initially)
+  // Sync isMutedRef
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
+  // Helper to attach analyser to a stream
+  const attachAnalyser = (userId: string, stream: MediaStream) => {
+    if (!audioContextRef.current) return;
+    try {
+      if (analysersRef.current.has(userId)) return; // Already attached
+      
+      const audioContext = audioContextRef.current;
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+      
+      analysersRef.current.set(userId, analyser);
+    } catch (e) {
+      console.error("Audio analysis attach error", e);
+    }
+  };
+
+  // Initialize Audio Logic
+  useEffect(() => {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const audioContext = new AudioContextClass();
+    audioContextRef.current = audioContext;
+
+    const checkVolume = () => {
+       const speaking = new Set<string>();
+       
+       analysersRef.current.forEach((analyser, userId) => {
+          // Skip local user if muted
+          if (userId === user.id && isMutedRef.current) return;
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          analyser.getByteFrequencyData(dataArray);
+          const sum = dataArray.reduce((prev, curr) => prev + curr, 0);
+          const avg = sum / dataArray.length;
+          
+          if (avg > 15) { // Threshold
+             speaking.add(userId);
+          }
+       });
+
+       setSpeakingUsers(prev => {
+         // Optimization: Only update if changed
+         if (prev.size === speaking.size && [...speaking].every(x => prev.has(x))) return prev;
+         return speaking;
+       });
+
+       animationFrameRef.current = requestAnimationFrame(checkVolume);
+    };
+    checkVolume();
+
+    return () => {
+       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+       audioContext.close();
+    };
+  }, []);
+
+
+  // Initialize Local Media
   useEffect(() => {
     const initMedia = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         setLocalStream(stream);
-        setupAudioAnalysis(stream);
+        // Attach local analyser
+        if (user?.id) attachAnalyser(user.id, stream);
       } catch (e) {
         console.error("Microphone permission denied", e);
       }
@@ -55,7 +122,14 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
       localStream?.getTracks().forEach(t => t.stop());
       api.post('/clans/voice/leave').catch(() => {});
     };
-  }, []);
+  }, [user]); // Re-run if user is set (to use user.id)
+
+  // Sync Remote Streams with Analysers
+  useEffect(() => {
+     remoteStreams.forEach((stream, userId) => {
+        attachAnalyser(userId, stream);
+     });
+  }, [remoteStreams]);
 
   // Handle Participants (Mesh Networking)
   useEffect(() => {
@@ -64,13 +138,12 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
     participants.forEach(p => {
       if (p.userId === user.id) return;
       
-      // If we don't have a peer connection yet, create one
       if (!peersRef.current.has(p.userId)) {
          createPeerConnection(p.userId);
       }
     });
 
-    // Cleanup left users
+    // Cleanup
     const currentIds = new Set(participants.map(p => p.userId));
     peersRef.current.forEach((pc, userId) => {
       if (!currentIds.has(userId)) {
@@ -81,45 +154,90 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
           newMap.delete(userId);
           return newMap;
         });
+        analysersRef.current.delete(userId); // Cleanup analyser
       }
     });
-
   }, [participants, localStream]);
 
-  // Handle Signals
+  // Handle Signals (Serialized to prevent race conditions)
   useEffect(() => {
     if (!localStream) return;
 
-    signals.forEach(async (signalData) => {
-       // Skip if already processed or from self
-       if (processedSignalTimestamps.current.has(signalData.timestamp)) return;
-       if (signalData.fromUserId === user.id) return;
+    const processSignals = async () => {
+      // Sort signals by timestamp to ensure order (Offer -> Answer -> Candidate) usually
+      // But candidates might arrive "before" if we rely purely on timestamp. 
+      // Safe bet: Process Offers/Answers first in the batch? 
+      // Actually, simple serialization is usually enough if the server sends them in order.
+      
+      for (const signalData of signals) {
+         if (processedSignalTimestamps.current.has(signalData.timestamp)) continue;
+         if (signalData.fromUserId === user.id) continue;
 
-       processedSignalTimestamps.current.add(signalData.timestamp);
-       
-       const { fromUserId, signal } = signalData;
-       let pc = peersRef.current.get(fromUserId);
+         processedSignalTimestamps.current.add(signalData.timestamp);
+         
+         const { fromUserId, signal } = signalData;
+         let pc = peersRef.current.get(fromUserId);
 
-       if (!pc) {
-         // Received signal from unknown peer (likely they initiated)
-         pc = createPeerConnection(fromUserId);
-       }
-
-       try {
-         if (signal.type === 'offer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(signal));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            sendSignal(fromUserId, answer);
-         } else if (signal.type === 'answer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(signal));
-         } else if (signal.candidate) {
-            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+         if (!pc) {
+           pc = createPeerConnection(fromUserId);
          }
-       } catch (e) {
-         console.error("Signaling error", e);
-       }
-    });
+
+         try {
+           if (signal.type === 'offer') {
+               // If we are already connected (Stable) and receive an Offer, it's a renegotiation.
+               // Or a glare. 
+               // Simple logic: Always accept offer if we are receiving.
+               if (pc.signalingState !== "stable" && pc.signalingState !== "have-remote-offer") {
+                   // Glare handling: If we are 'have-local-offer', we usually rollback if we are 'impolite'.
+                   // For this simple mesh, let's just proceed and hope sending valid answers resolves it.
+                   // Ideally we'd use the "Perfect Negotiation" pattern.
+                   await Promise.all([
+                       pc.setLocalDescription({ type: "rollback" }), 
+                       pc.setRemoteDescription(new RTCSessionDescription(signal))
+                   ]);
+               } else {
+                   await pc.setRemoteDescription(new RTCSessionDescription(signal));
+               }
+               
+               const answer = await pc.createAnswer();
+               await pc.setLocalDescription(answer);
+               sendSignal(fromUserId, answer);
+               
+               // Flush queued candidates if any (managed internally by browser usually if we add null? no)
+               // Simple candidate queue logic:
+               const queue = pendingCandidates.current.get(fromUserId) || [];
+               for (const c of queue) {
+                   await pc.addIceCandidate(new RTCIceCandidate(c));
+               }
+               pendingCandidates.current.set(fromUserId, []);
+
+           } else if (signal.type === 'answer') {
+              if (pc.signalingState === "have-local-offer") {
+                  await pc.setRemoteDescription(new RTCSessionDescription(signal));
+                  // Flush queued candidates
+                  const queue = pendingCandidates.current.get(fromUserId) || [];
+                  for (const c of queue) {
+                      await pc.addIceCandidate(new RTCIceCandidate(c));
+                  }
+                  pendingCandidates.current.set(fromUserId, []);
+              } 
+           } else if (signal.candidate) {
+              if (pc.remoteDescription) {
+                  await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+              } else {
+                  // Queue candidate
+                  const queue = pendingCandidates.current.get(fromUserId) || [];
+                  queue.push(signal.candidate);
+                  pendingCandidates.current.set(fromUserId, queue);
+              }
+           }
+         } catch (e) {
+           console.error("Signaling error", e, signal);
+         }
+      }
+    };
+    
+    processSignals();
   }, [signals, localStream]);
 
   const createPeerConnection = (targetUserId: string) => {
@@ -129,19 +247,16 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
      
      peersRef.current.set(targetUserId, pc);
 
-     // Add local tracks
      localStream?.getTracks().forEach(track => {
        pc.addTrack(track, localStream);
      });
 
-     // Handle ICE candidates
      pc.onicecandidate = (event) => {
        if (event.candidate) {
          sendSignal(targetUserId, { candidate: event.candidate });
        }
      };
 
-     // Handle Remote Stream
      pc.ontrack = (event) => {
        setRemoteStreams(prev => {
          const newMap = new Map(prev);
@@ -150,16 +265,14 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
        });
      };
 
-     // Tie-breaker: If my ID < their ID, I offer
-     if (user.id < targetUserId) {
-        pc.onnegotiationneeded = async () => {
-           try {
-             const offer = await pc.createOffer();
-             await pc.setLocalDescription(offer);
-             sendSignal(targetUserId, offer);
-           } catch(e) { console.error(e); }
-        };
-     }
+     // Allow ALL peers to negotiate to support video toggling updates
+     pc.onnegotiationneeded = async () => {
+         try {
+           const offer = await pc.createOffer();
+           await pc.setLocalDescription(offer);
+           sendSignal(targetUserId, offer);
+         } catch(e) { console.error(e); }
+     };
 
      return pc;
   };
@@ -175,20 +288,19 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
   };
 
   const toggleVideo = async () => {
+    let newState = isVideoEnabled;
     if (isVideoEnabled) {
        // Stop video track
        const videoTrack = localStream?.getVideoTracks()[0];
        if (videoTrack) {
          videoTrack.stop();
          localStream?.removeTrack(videoTrack);
-         // Update all peers
-         // Remove track from PC is tricky in WebRTC, usually we replaceTrack(null) or simple renegotiation
-         // But `removeTrack` triggers negotiation
          peersRef.current.forEach(pc => {
              const sender = pc.getSenders().find(s => s.track?.kind === 'video');
              if (sender) pc.removeTrack(sender);
          });
        }
+       newState = false;
        setIsVideoEnabled(false);
     } else {
        // Start video track
@@ -198,104 +310,107 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
          
          if (localStream) {
            localStream.addTrack(videoTrack);
-           // Add to all peers
            peersRef.current.forEach(pc => {
              pc.addTrack(videoTrack, localStream);
            });
          }
+         newState = true;
          setIsVideoEnabled(true);
        } catch (e) {
          console.error("Camera error", e);
        }
     }
+    
+    // Sync to DB
+    try {
+      await api.post('/clans/voice/state', { channelId, isCameraOn: newState }); 
+    } catch (e) { console.error(e); }
   };
 
-  const toggleMic = () => {
+  const toggleMic = async () => {
+     let newState = isMuted;
      if (localStream) {
-       localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
-       setIsMuted(!isMuted);
+       localStream.getAudioTracks().forEach(t => t.enabled = !(!isMuted));
+       newState = !isMuted;
+       setIsMuted(newState);
      }
+     
+     // Sync to DB
+     try {
+       await api.post('/clans/voice/state', { channelId, isMuted: newState });
+     } catch (e) { console.error(e); }
   };
 
-  // Setup Audio Analysis for Visualizer
-  const setupAudioAnalysis = (stream: MediaStream) => {
-    // Re-use logic from previous implementation...
-    // For brevity, using simplified version
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    const audioContext = new AudioContextClass();
-    const analyser = audioContext.createAnalyser();
-    const source = audioContext.createMediaStreamSource(stream);
-    source.connect(analyser);
-    audioContextRef.current = audioContext;
-    analyserRef.current = analyser;
-
-    const checkVolume = () => {
-       const dataArray = new Uint8Array(analyser.frequencyBinCount);
-       analyser.getByteFrequencyData(dataArray);
-       const sum = dataArray.reduce((prev, curr) => prev + curr, 0);
-       const avg = sum / dataArray.length;
-       if (avg > 10) setSpeakingUsers(prev => new Set(prev).add(user.id));
-       else setSpeakingUsers(prev => { const n = new Set(prev); n.delete(user.id); return n; });
-       animationFrameRef.current = requestAnimationFrame(checkVolume);
-    };
-    checkVolume();
-  };
-  
-  // Render
   const gridClass = participants.length <= 1 ? "grid-cols-1" : participants.length <= 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-2 md:grid-cols-3";
 
   return (
     <div className="flex-1 flex flex-col bg-black h-full relative overflow-hidden">
-        {/* Same Layout UI as before... */}
-       <div className="absolute top-0 left-0 right-0 p-4 z-10 flex justify-between items-start pointer-events-none">
-         <div className="flex items-center gap-2 pointer-events-auto">
-            <Volume2 className="w-5 h-5 text-white" />
-            <span className="font-mono font-bold text-white uppercase tracking-wider">{channelId}</span>
-         </div>
-         <div className="pointer-events-auto">
-            <button className="p-2 bg-black/50 border border-white/10 text-white rounded hover:bg-white/10">
-               <MessageSquare className="w-5 h-5" />
-            </button>
-         </div>
-       </div>
+      {/* Top Bar */}
+      <div className="absolute top-0 left-0 right-0 p-4 z-10 flex justify-between items-start pointer-events-none">
+        <div className="flex items-center gap-2 pointer-events-auto">
+           <Volume2 className="w-5 h-5 text-white" />
+           <span className="font-mono font-bold text-white uppercase tracking-wider">{channelId}</span>
+        </div>
+        <div className="pointer-events-auto">
+           <button className="p-2 bg-black/50 border border-white/10 text-white rounded hover:bg-white/10">
+              <MessageSquare className="w-5 h-5" />
+           </button>
+        </div>
+      </div>
 
-       <div className={`flex-1 grid ${gridClass} gap-4 p-4 items-center justify-items-center justify-center content-center overflow-y-auto`}>
-          {participants.length === 0 && <div className="text-zinc-500 font-mono">Waiting for users...</div>}
-          {participants.map((p: any) => {
-            const isLocal = p.userId === user.id;
-            const stream = isLocal ? localStream : remoteStreams.get(p.userId);
-            const isVideoActive = stream && stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].readyState === 'live' && stream.getVideoTracks()[0].enabled;
-            // Hacky check for video
-            
-            return (
-              <div key={p.id} className="w-full max-w-5xl h-full mx-auto aspect-video bg-zinc-900 border border-white/10 relative group flex items-center justify-center overflow-hidden">
-                 {/* Video */}
-                 {stream && (
-                    <video 
-                      className={`absolute inset-0 w-full h-full object-cover z-20 ${isLocal ? 'transform scale-x-[-1]' : ''}`}
-                      autoPlay
-                      muted={isLocal} // Mute self, unmute others
-                      playsInline
-                      ref={video => { if (video && video.srcObject !== stream) video.srcObject = stream; }}
-                    />
-                 )}
-                 {/* Fallback Avatar */}
-                 {(!stream) && (
-                   <div className="relative z-10">
-                      <UserAvatar src={p.image} name={p.name} className="w-24 h-24 border-4 border-zinc-900" />
-                   </div>
-                 )}
-                 {/* Name Tag */}
-                 <div className="absolute bottom-4 left-4 z-30 bg-black/60 px-3 py-1 rounded-full border border-white/10 text-white font-mono text-sm font-bold">
-                    {p.name} {isLocal ? "(You)" : ""}
-                 </div>
-              </div>
-            );
-          })}
-       </div>
+      {/* Main Grid */}
+      <div className={`flex-1 grid ${gridClass} gap-4 p-4 items-center justify-items-center justify-center content-center overflow-y-auto`}>
+         {participants.length === 0 && <div className="text-zinc-500 font-mono">Waiting for users...</div>}
+         {participants.map((p: any) => {
+           const isLocal = p.userId === user.id;
+           const stream = isLocal ? localStream : remoteStreams.get(p.userId);
+           const isSpeaking = speakingUsers.has(p.userId || p.id);
+           
+           // Check if video is truly active
+           const isVideoActive = stream && stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].readyState === 'live' && (isLocal ? isVideoEnabled : true);
 
-       <div className="h-20 bg-black border-t border-white/10 flex items-center justify-center gap-4 relative z-20">
-         <button onClick={toggleMic} className={`p-4 rounded-full ${isMuted ? 'bg-red-500' : 'bg-zinc-800 hover:bg-zinc-700'} text-white transition-colors`}>
+           // Determine Mute Status
+           const isUserMuted = isLocal ? isMuted : p.isMuted;
+           
+           return (
+             <div key={p.id} className={`w-full max-w-5xl h-full mx-auto aspect-video bg-zinc-900 border transition-colors duration-200 relative group flex items-center justify-center overflow-hidden ${isSpeaking && !isUserMuted ? 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'border-white/10'}`}>
+                {/* Background */}
+                <div className="absolute inset-0 bg-zinc-800" />
+                
+                {/* Media Element (Audio/Video) */}
+                {stream && (
+                   <video 
+                     className={`absolute inset-0 w-full h-full object-cover z-20 ${isLocal ? 'transform scale-x-[-1]' : ''} ${isVideoActive ? 'opacity-100' : 'opacity-0'}`} 
+                     autoPlay
+                     muted={isLocal} 
+                     playsInline
+                     ref={video => { if (video && video.srcObject !== stream) video.srcObject = stream; }}
+                   />
+                )}
+                
+                {/* Fallback Avatar (Visible if Video is NOT active) */}
+                {(!isVideoActive) && (
+                  <div className="relative z-10 flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
+                     <div className={`relative rounded-full p-1 transition-all duration-200 ${isSpeaking && !isUserMuted ? 'scale-110' : 'scale-100'}`}>
+                        <div className={`absolute inset-0 rounded-full animate-pulse ${isSpeaking && !isUserMuted ? 'bg-purple-500/50' : 'bg-transparent'}`} />
+                        <UserAvatar src={p.image} name={p.name} className={`w-24 h-24 border-4 ${isSpeaking && !isUserMuted ? 'border-purple-500' : 'border-zinc-900'}`} fallbackClassName="text-2xl" />
+                     </div>
+                  </div>
+                )}
+
+                {/* Status Pill */}
+                <div className="absolute bottom-4 left-4 z-30 bg-black/60 backdrop-blur px-3 py-1 rounded-full border border-white/10 flex items-center gap-2">
+                   {isUserMuted ? <Mic className="w-3 h-3 text-red-500" /> : isSpeaking ? <Mic className="w-3 h-3 text-purple-500 animate-pulse" /> : <Mic className="w-3 h-3 text-zinc-500" />}
+                   <span className={`font-mono font-bold text-sm ${isSpeaking && !isUserMuted ? 'text-purple-400' : 'text-white'}`}>{p.name} {isLocal ? "(You)" : ""}</span>
+                </div>
+             </div>
+           );
+         })}
+      </div>
+
+      {/* Bottom Control Bar */}
+      <div className="h-20 bg-black border-t border-white/10 flex items-center justify-center gap-4 relative z-20">
+         <button onClick={toggleMic} className={`p-4 rounded-full ${isMuted ? 'bg-red-500 text-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'} transition-colors`}>
             {isMuted ? <PhoneOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
          </button>
          <button onClick={toggleVideo} className={`p-4 rounded-full ${isVideoEnabled ? 'bg-white text-black' : 'bg-zinc-800 text-white hover:bg-zinc-700'} transition-colors`}>
@@ -305,7 +420,7 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({
          <button onClick={onLeave} className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full font-mono font-bold uppercase text-sm flex items-center gap-2">
             <PhoneOff className="w-4 h-4" /> Disconnect
          </button>
-       </div>
+      </div>
     </div>
   );
 };

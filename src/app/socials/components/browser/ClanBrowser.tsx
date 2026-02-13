@@ -21,7 +21,10 @@ export const ClanBrowser = ({ activeChannelId, setActiveChannelId }: any) => {
       // Assuming existing /api/clans endpoint supports search or fetch all
       // If not, we might need to adjust or create a new endpoint.
       // For now, let's try querying the main clans endpoint.
-      const url = query ? `/clans?q=${encodeURIComponent(query)}` : '/clans';
+      // Ensure we use discovery mode to get all clans, not just joined ones
+      const url = query 
+        ? `/clans?mode=discover&q=${encodeURIComponent(query)}` 
+        : '/clans?mode=discover';
       const { data } = await api.get(url);
       if (Array.isArray(data)) {
         setClans(data);

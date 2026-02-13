@@ -67,6 +67,8 @@ export async function GET(
             userId: users.id,
             name: users.name,
             image: users.image,
+            isMuted: voiceParticipants.isMuted,
+            isCameraOn: voiceParticipants.isCameraOn,
           })
           .from(voiceParticipants)
           .leftJoin(users, eq(voiceParticipants.userId, users.id))

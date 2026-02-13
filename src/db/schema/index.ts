@@ -211,4 +211,6 @@ export const voiceParticipants = pgTable("voice_participants", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  isMuted: boolean("is_muted").default(false).notNull(),
+  isCameraOn: boolean("is_camera_on").default(false).notNull(),
 });
