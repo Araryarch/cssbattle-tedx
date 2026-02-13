@@ -6,6 +6,8 @@ export const metadata = {
   title: "Manage Certificates | Admin",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminCertificatesPage() {
     const users = await getEligibleCertificateUsersAction();
 

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import UsersTable from "@/components/admin/UsersTable";
 
+export const dynamic = "force-dynamic";
+
 export default async function UsersManagementPage() {
   const users = await getUsersAction();
 
