@@ -25,11 +25,11 @@ export async function POST(request: Request) {
     const member = await db.select().from(clanMembers).where(and(eq(clanMembers.clanId, clanId), eq(clanMembers.userId, payload.userId))).then(res => res[0]);
     if (!member) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Add signal to store
-    addSignal(clanId, {
+    // Add signal to store (DB now)
+    await addSignal(clanId, {
       fromUserId: payload.userId,
-      toUserId, // If null, broadcast to all
-      signal, // { type: 'offer'|'answer'|'candidate', sdp?: ..., candidate?: ... }
+      toUserId: toUserId || null, // Ensure null if undefined
+      signal, 
     });
 
     return NextResponse.json({ success: true });

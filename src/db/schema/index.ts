@@ -271,3 +271,12 @@ export const contestLeaderboard = pgTable(
     pk: primaryKey({ columns: [t.contestId, t.userId] }),
   })
 );
+
+export const voiceSignals = pgTable("voice_signals", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  clanId: text("clan_id").notNull().references(() => clans.id, { onDelete: "cascade" }),
+  fromUserId: text("from_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  toUserId: text("to_user_id").references(() => users.id, { onDelete: "cascade" }), // Null for broadcast, but usually direct
+  signal: jsonb("signal").notNull(), // The actual SDP or Candidate
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});

@@ -102,10 +102,11 @@ export async function GET(
             
             const voiceState = await fetchVoiceState();
 
-            // Handle Signals
-            const signals = getSignalsForClan(clanId);
+
+            // Handle Signals (Async DB now)
+            const signals = await getSignalsForClan(clanId, lastSignalTimestamp);
+            
             const newSignals = signals.filter((s: any) => 
-              s.timestamp > lastSignalTimestamp &&
               s.fromUserId !== payload.userId && // Don't echo back
               (!s.toUserId || s.toUserId === payload.userId)
             );
@@ -114,6 +115,7 @@ export async function GET(
                lastSignalTimestamp = Math.max(...newSignals.map((s: any) => s.timestamp));
                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "voice-signal", signals: newSignals })}\n\n`));
             }
+
 
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "update", messages: latestMessages.reverse() })}\n\n`));
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "voice-update", participants: voiceState })}\n\n`));
