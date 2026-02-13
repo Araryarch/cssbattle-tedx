@@ -520,7 +520,6 @@ async function syncContestLeaderboard(contestId: string) {
 // Global Leaderboard (Sum of best scores per challenge)
 export async function getContestLeaderboardAction(contestId: string, limit = 100) {
   try {
-     console.log(`[Leaderboard] Fetching for contest ${contestId}`);
      // Ensure data is up to date
      await syncContestLeaderboard(contestId);
 

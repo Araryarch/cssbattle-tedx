@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 
 
@@ -15,6 +16,22 @@ export const auth = betterAuth({
             verification: schema.verification,
         },
     }),
+    user: {
+        additionalFields: {
+            role: {
+                type: "string",
+                defaultValue: "user",
+            },
+            rank: {
+                type: "string",
+                defaultValue: "8flex",
+            },
+            isVerified: {
+                type: "boolean",
+                defaultValue: false,
+            },
+        },
+    },
     socialProviders: {
         github: {
             clientId: process.env.GITHUB_ID as string,
@@ -22,16 +39,21 @@ export const auth = betterAuth({
         },
     },
     emailAndPassword: {
-        enabled: true,
+        enabled: false,
     },
     baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
     callbacks: {
         session: async ({ session, user }: { session: any, user: any }) => {
+            // Force fetch user to ensure we get custom fields like role
+            const [dbUser] = await db.select().from(schema.users).where(eq(schema.users.id, user.id));
+
             return {
                 ...session,
                 user: {
                     ...user,
-                    role: user.role, // Ensure role is passed
+                    role: dbUser?.role || "user",
+                    rank: dbUser?.rank || "8flex",
+                    isVerified: dbUser?.isVerified || false,
                 },
             };
         },
