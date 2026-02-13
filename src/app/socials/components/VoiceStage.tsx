@@ -150,7 +150,7 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({ channelId, participants,
       </div>
 
       {/* Main Grid */}
-      <div className={`flex-1 grid ${gridClass} gap-4 p-4 items-center justify-center content-center overflow-y-auto`}>
+      <div className={`flex-1 grid ${gridClass} gap-4 p-4 items-center justify-items-center justify-center content-center overflow-y-auto`}>
          {participants.length === 0 && (
             <div className="flex flex-col items-center justify-center text-zinc-500 gap-4 col-span-full">
                <div className="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center">
@@ -164,7 +164,7 @@ export const VoiceStage: React.FC<VoiceStageProps> = ({ channelId, participants,
            const isLocal = p.userId === user.id;
            
            return (
-             <div key={p.id} className={`w-full max-w-5xl aspect-video bg-zinc-900 border transition-colors duration-200 relative group flex items-center justify-center overflow-hidden ${isSpeaking ? 'border-purple-500' : 'border-white/10'}`}>
+             <div key={p.id} className={`w-full max-w-5xl h-full mx-auto aspect-video bg-zinc-900 border transition-colors duration-200 relative group flex items-center justify-center overflow-hidden ${isSpeaking ? 'border-purple-500' : 'border-white/10'}`}>
                 {/* Background/Video Placeholder */}
                 <div className="absolute inset-0 bg-zinc-800" />
                 
