@@ -28,32 +28,22 @@ export default function ChallengeForm({
       title: "",
       difficulty: "Easy",
       colors: ["#ffffff"],
-      defaultCode: `<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      width: 400px;
-      height: 300px;
-      background: #191919;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-    }
-    div {
-      width: 100px;
-      height: 100px;
-      background: #f0f0f0;
-    }
-  </style>
-</head>
-<body>
-  <div></div>
-</body>
-</html>`,
+      defaultCode: `<div></div>
+<style>
+  div {
+    width: 100px;
+    height: 100px;
+    background: #dd6b4d;
+  }
+</style>
+
+<!-- OBJECTIVE -->
+<!-- Write HTML/CSS in this editor and replicate the given target image in the least code possible. What you write here, renders as it is -->
+
+<!-- SCORING -->
+<!-- The score is calculated based on the number of characters you use (this comment included :P) and how close you replicate the image. -->
+
+<!-- IMPORTANT: remove the comments before submitting -->`,
       targetCode: `<!DOCTYPE html>
 <html>
 <head>

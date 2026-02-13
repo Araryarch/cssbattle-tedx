@@ -279,7 +279,7 @@ export function useBattle(id: string, user: { id?: string; name?: string | null 
   );
 
   const resetCode = useCallback(() => {
-    setCode(challenge?.defaultCode || "");
+    setCode(challenge?.defaultCode || DEFAULT_CODE);
   }, [challenge?.defaultCode]);
 
   return {
