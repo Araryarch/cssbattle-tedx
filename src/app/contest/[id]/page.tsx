@@ -304,7 +304,7 @@ function ChallengePreview({ challenge }: { challenge: any }) {
         
         const observer = new ResizeObserver((entries) => {
             for (const entry of entries) {
-                const width = entry.contentRect.width;
+                const width = Math.floor(entry.contentRect.width);
                 const newScale = width / 400;
                 setScale(newScale);
             }
@@ -315,30 +315,34 @@ function ChallengePreview({ challenge }: { challenge: any }) {
     }, []);
 
     return (
-        <div ref={containerRef} className="aspect-[4/3] bg-black relative flex items-center justify-center overflow-hidden border-b border-white/5 group-hover:border-primary/20 transition-colors">
+        <div ref={containerRef} className="aspect-[4/3] bg-black relative overflow-hidden border-b border-white/5 group-hover:border-primary/20 transition-colors">
             {challenge.imageUrl ? (
                     <img 
                     src={challenge.imageUrl} 
                     alt={challenge.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                     />
             ) : challenge.targetCode ? (
                 <div 
-                    className="w-[400px] h-[300px] bg-white origin-top-left pointer-events-none select-none"
-                    style={{ transform: `scale(${scale})` }}
+                    className="absolute top-0 left-0 w-[400px] h-[300px] bg-white pointer-events-none select-none"
+                    style={{ 
+                        transform: `scale(${scale})`,
+                        transformOrigin: 'top left'
+                    }}
                 >
                     <iframe 
+                        title="Challenge Preview"
                         srcDoc={`<!DOCTYPE html><html><head><style>body,html{margin:0;padding:0;width:400px;height:300px;overflow:hidden;background:white;}</style></head><body>${challenge.targetCode}</body></html>`}
-                        className="w-full h-full border-none"
+                        className="w-[400px] h-[300px] border-none"
                     />
                 </div>
             ) : (
-                <div className="w-full h-full flex items-center justify-center text-zinc-700 font-mono text-sm">
+                <div className="w-full h-full flex items-center justify-center text-zinc-700 font-mono text-sm w-full">
                     No Preview
                 </div>
             )}
             
-            <div className="absolute inset-0 bg-black/50 group-hover:bg-transparent transition-colors" />
+            <div className="absolute inset-0 bg-black/50 group-hover:bg-transparent transition-colors pointer-events-none" />
             
             <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 z-10">
                 <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-lg text-white">

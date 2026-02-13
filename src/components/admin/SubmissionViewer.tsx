@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+"use client";
+
+import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import { X, Code, Eye, Target, Send, MessageSquare, Reply, CornerDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -85,7 +87,6 @@ const CommentNode = ({
                     <button 
                         onClick={() => {
                             setReplyingTo(replyingTo === comment.id ? null : comment.id);
-                            // Focus handling is managed by effect or autoFocus, but manual focus is good too
                             if (replyingTo !== comment.id) {
                                 setTimeout(() => document.getElementById(`reply-input-${comment.id}`)?.focus(), 50);
                             }
@@ -96,7 +97,6 @@ const CommentNode = ({
                     </button>
                 </div>
 
-                {/* Nested Content (Replies + Input) */}
                 {(replies.length > 0 || replyingTo === comment.id) && (
                      <div className="pl-6 mt-3 space-y-3 relative before:absolute before:left-2 before:top-0 before:bottom-0 before:w-px before:bg-white/10">
                         {replies.map(r => (
@@ -157,6 +157,25 @@ export default function SubmissionViewer({
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
 
+  // Dynamic Scaling
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    if (!previewContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+            const { width, height } = entry.contentRect;
+            const scaleW = (width - 40) / 400;
+            const scaleH = (height - 40) / 300;
+            const newScale = Math.min(scaleW, scaleH, 1.25);
+            setScale(newScale);
+        }
+    });
+    observer.observe(previewContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
      loadComments();
   }, [submission.id]);
@@ -194,13 +213,39 @@ export default function SubmissionViewer({
       setPosting(false);
   };
 
-  const previewSrc = `<!DOCTYPE html><html><head><style>body,html{margin:0;padding:0;width:400px;height:300px;overflow:hidden;background:white;}</style></head><body>${submission.code}</body></html>`;
+  const previewSrc = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          * { box-sizing: border-box; }
+          body, html { 
+              margin: 0; padding: 0; width: 400px; height: 300px; overflow: hidden; background: white;
+              -ms-overflow-style: none; scrollbar-width: none;
+          }
+          body::-webkit-scrollbar { display: none; }
+        </style>
+      </head>
+      <body>${submission.code}</body>
+    </html>
+  `;
   
   const targetSrc = (() => {
+      const styles = `
+        <style>
+          * { box-sizing: border-box; }
+          body, html { 
+              margin: 0; padding: 0; width: 400px; height: 300px; overflow: hidden; background: white;
+              -ms-overflow-style: none; scrollbar-width: none;
+          }
+          body::-webkit-scrollbar { display: none; }
+        </style>
+      `;
+
       if (submission.challengeImage && !submission.challengeTarget) {
-         return `<!DOCTYPE html><html><body style="margin:0;padding:0;width:400px;height:300px;overflow:hidden;background:url('${submission.challengeImage}') no-repeat center/cover;"></body></html>`;
+          return `<!DOCTYPE html><html><head>${styles}</head><body style="margin:0;padding:0;width:400px;height:300px;overflow:hidden;background:url('${submission.challengeImage}') no-repeat center/cover; background-color: white;"></body></html>`;
       }
-      return `<!DOCTYPE html><html><head><style>body,html{margin:0;padding:0;width:400px;height:300px;overflow:hidden;background:white;}</style></head><body>${submission.challengeTarget || ""}</body></html>`;
+      return `<!DOCTYPE html><html><head>${styles}</head><body>${submission.challengeTarget || ""}</body></html>`;
   })();
 
   const formatTime = (seconds?: number | null) => {
@@ -210,7 +255,6 @@ export default function SubmissionViewer({
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  // Group comments
   const rootComments = comments.filter(c => !c.parentId);
 
   return (
@@ -238,10 +282,9 @@ export default function SubmissionViewer({
         </div>
 
         <div className="flex-1 flex flex-col min-h-0">
-            {/* Top Section: Code & Preview (60% height) */}
-            <div className="h-[60%] flex border-b border-white/5">
+            <div className="h-[60%] flex border-b border-white/5 flex-col md:flex-row">
                 {/* Left: Code Editor */}
-                <div className="flex-1 border-r border-white/5 relative bg-[#1e1e1e] flex flex-col">
+                <div className="flex-1 border-r border-white/5 relative bg-[#1e1e1e] flex flex-col min-h-[300px]">
                     <div className="px-4 py-2 border-b border-white/5 flex items-center justify-between bg-[#1e1e1e] shrink-0">
                         <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
                             <Code className="w-4 h-4" /> Source Code
@@ -269,7 +312,7 @@ export default function SubmissionViewer({
                 </div>
 
                 {/* Right: Preview */}
-                <div className="w-[500px] bg-[#0a0a0c] flex flex-col shrink-0 overflow-hidden">
+                <div className="w-full md:w-[500px] bg-[#0a0a0c] flex flex-col shrink-0 overflow-hidden">
                     <div className="px-4 py-2 border-b border-white/5 flex items-center justify-between bg-[#0a0a0c] shrink-0">
                         <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
                             <Eye className="w-4 h-4" /> Output
@@ -296,8 +339,14 @@ export default function SubmissionViewer({
                         </div>
                     </div>
                     
-                    <div className="flex-1 flex items-center justify-center p-8 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.03)_1px,transparent_0)] bg-[size:16px_16px] overflow-hidden">
-                         <div className="relative group shrink-0 shadow-2xl scale-125 md:scale-100">
+                    <div ref={previewContainerRef} className="flex-1 flex items-center justify-center bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.03)_1px,transparent_0)] bg-[size:16px_16px] overflow-hidden relative min-h-[300px]">
+                         <div 
+                            className="relative shadow-2xl transition-transform duration-200"
+                            style={{ 
+                                transform: `scale(${scale})`,
+                                transformOrigin: 'center center'
+                            }}
+                         >
                              <div className="w-[400px] h-[300px] bg-white ring-1 ring-white/10 relative overflow-hidden">
                                  {showTarget ? (
                                     <>
@@ -317,7 +366,7 @@ export default function SubmissionViewer({
             </div>
 
             {/* Bottom Section: Discussion (40% height) */}
-            <div className="h-[40%] flex flex-col bg-[#0f0f12]">
+            <div className="h-[40%] flex flex-col bg-[#0f0f12] min-h-0">
                 <div className="px-4 py-2 border-b border-white/5 bg-[#0f0f12] flex items-center gap-2 shrink-0">
                     <MessageSquare className="w-4 h-4 text-zinc-500" />
                     <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Discussion</span>
@@ -349,7 +398,6 @@ export default function SubmissionViewer({
                     )}
                 </div>
 
-                {/* Main Input Area */}
                 <div className="p-4 border-t border-white/5 bg-[#0f0f12] shrink-0">
                      <div className="relative max-w-4xl mx-auto">
                         <input 
@@ -363,7 +411,6 @@ export default function SubmissionViewer({
                                 replyingTo && "opacity-50 pointer-events-none cursor-not-allowed placeholder:text-zinc-600"
                             )}
                         />
-                         {/* Hint if replying (but here we block main input if replying) */}
                          {replyingTo && (
                              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-zinc-500 bg-[#050505] px-2 flex items-center gap-2">
                                 <span className="animate-pulse">Replying in thread...</span>

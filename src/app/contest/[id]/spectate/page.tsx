@@ -107,13 +107,44 @@ export default function ContestSpectatePage() {
 }
 
 function Session({ session }: { session: LiveSession }) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scale, setScale] = useState(0.5); // Initial lower scale
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const width = Math.floor(entry.contentRect.width);
+                const newScale = width / 400;
+                setScale(newScale);
+            }
+        });
+        
+        observer.observe(containerRef.current);
+        return () => observer.disconnect();
+    }, []);
+
     // Generate preview srcDoc
     const srcDoc = `
       <!DOCTYPE html>
       <html>
         <head>
           <style>
-            body, html { margin: 0; padding: 0; width: 400px; height: 300px; overflow: hidden; background: white; }
+            * { box-sizing: border-box; }
+            body, html { 
+                margin: 0; 
+                padding: 0; 
+                width: 400px; 
+                height: 300px; 
+                overflow: hidden; 
+                background: white;
+                -ms-overflow-style: none;  /* IE and Edge */
+                scrollbar-width: none;  /* Firefox */
+            }
+            body::-webkit-scrollbar {
+                display: none; /* Chrome, Safari and Opera */
+            }
           </style>
         </head>
         <body>${session.code}</body>
@@ -134,17 +165,23 @@ function Session({ session }: { session: LiveSession }) {
             </div>
 
             {/* Preview Area */}
-            <div className="aspect-[4/3] relative bg-white w-full overflow-hidden">
-                <div className="w-[400px] h-[300px] origin-top-left scale-[0.75] md:scale-[0.85] lg:scale-[0.75] xl:scale-[0.65] pointer-events-none select-none">
+            <div ref={containerRef} className="aspect-[4/3] bg-white w-full overflow-hidden relative">
+                <div 
+                    className="absolute top-0 left-0 w-[400px] h-[300px] pointer-events-none select-none"
+                    style={{ 
+                        transform: `scale(${scale})`,
+                        transformOrigin: 'top left'
+                    }}
+                >
                      <iframe 
                         title={`Preview ${session.userName}`}
-                        className="w-full h-full border-none"
+                        className="w-[400px] h-[300px] border-none"
                         srcDoc={srcDoc}
                      />
                 </div>
                 
                 {/* Overlay on hover */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none z-10">
                     <span className="text-white text-xs font-bold bg-black/50 px-2 py-1 rounded backdrop-blur-sm">
                         {session.code.length} chars
                     </span>
