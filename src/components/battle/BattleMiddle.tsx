@@ -160,17 +160,9 @@ export default function BattleMiddle({
     <div className="flex-col bg-[#0a0a0c] h-full relative overflow-y-auto lg:overflow-visible custom-scrollbar">
       {/* Header / Toolbar */}
       <div className="flex items-center justify-between px-4 py-2 bg-[#0a0a0c] sticky top-0 z-30 border-b border-white/5">
-        <div className="flex items-center gap-3">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-            Code Output
-            </span>
-            {timeLeft && (
-                <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
-                    <Clock className="w-2.5 h-2.5 text-primary animate-pulse" />
-                    <span className="text-[9px] font-bold text-primary tracking-wider uppercase">{timeLeft}</span>
-                </div>
-            )}
-        </div>
+        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+          Code Output
+        </span>
         <div className="flex items-center gap-4">
           {(!contestId || (contestId && contestStatus === 'ended')) && (
             <Link  
