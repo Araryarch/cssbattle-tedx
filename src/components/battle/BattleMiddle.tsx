@@ -24,6 +24,7 @@ interface BattleMiddleProps {
   onUnlockSolutions: () => void;
   contestId?: string;
   contestStatus?: "active" | "ended" | "upcoming";
+  endTime?: string | Date; // Added this
 }
 
 export default function BattleMiddle({
@@ -36,6 +37,7 @@ export default function BattleMiddle({
   onUnlockSolutions,
   contestId,
   contestStatus,
+  endTime, // Added this
 }: BattleMiddleProps) {
   const [activeTab, setActiveTab] = useState<"your" | "global">("your");
   const [slideEnabled, setSlideEnabled] = useState(true);
@@ -43,6 +45,39 @@ export default function BattleMiddle({
   const [sliderValue, setSliderValue] = useState(50);
   const [showDiff, setShowDiff] = useState(false);
   const [showSolutionWarning, setShowSolutionWarning] = useState(false);
+
+  // Countdown Logic
+  const [timeLeft, setTimeLeft] = useState<string>("");
+  const [timeLeftIsCritical, setTimeLeftIsCritical] = useState(false);
+
+  useEffect(() => {
+    if (!endTime || contestStatus !== "active") return;
+
+    const targetDate = new Date(endTime).getTime();
+    
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const diff = targetDate - now;
+
+      if (diff <= 0) {
+        setTimeLeft("ENDED");
+        setTimeLeftIsCritical(false);
+        return;
+      }
+
+      const h = Math.floor(diff / (1000 * 60 * 60));
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+      // Critical if less than 1 minute (and at least 1 hour hasn't passed, though h will be 0)
+      setTimeLeftIsCritical(h === 0 && m === 0);
+      setTimeLeft(`${h}h ${m}m ${s}s`);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [endTime, contestStatus]);
   
   /* scaling logic */
   const [scale, setScale] = useState(1);
@@ -122,12 +157,20 @@ export default function BattleMiddle({
   };
 
   return (
-    <div className="flex flex-col bg-[#0a0a0c] h-full relative overflow-y-auto lg:overflow-visible custom-scrollbar">
+    <div className="flex-col bg-[#0a0a0c] h-full relative overflow-y-auto lg:overflow-visible custom-scrollbar">
       {/* Header / Toolbar */}
       <div className="flex items-center justify-between px-4 py-2 bg-[#0a0a0c] sticky top-0 z-30 border-b border-white/5">
-        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-          Code Output
-        </span>
+        <div className="flex items-center gap-3">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+            Code Output
+            </span>
+            {timeLeft && (
+                <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
+                    <Clock className="w-2.5 h-2.5 text-primary animate-pulse" />
+                    <span className="text-[9px] font-bold text-primary tracking-wider uppercase">{timeLeft}</span>
+                </div>
+            )}
+        </div>
         <div className="flex items-center gap-4">
           {(!contestId || (contestId && contestStatus === 'ended')) && (
             <Link  
@@ -349,6 +392,36 @@ export default function BattleMiddle({
             </div>
         )}
       </div>
+
+      {timeLeft && (
+        <div className="px-4 pb-8 mt-auto shrink-0">
+             <div className={cn(
+                 "bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 relative overflow-hidden group transition-all duration-300",
+                 timeLeftIsCritical && "border-primary/50 bg-primary/20 shadow-[0_0_30px_rgba(222,41,41,0.3)] animate-pulse"
+             )}>
+                <div className={cn(
+                    "absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none",
+                    timeLeftIsCritical && "from-primary/40"
+                )} />
+                <div className={cn("flex items-center gap-2 text-zinc-500 mb-1 z-10 transition-colors", timeLeftIsCritical && "text-primary")}>
+                    <Clock className={cn("w-3 h-3", timeLeftIsCritical && "animate-spin-slow")} />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
+                        {timeLeft === "ENDED" ? "Contest Finished" : timeLeftIsCritical ? "TIME IS RUNNING OUT!" : "Contest Ends In"}
+                    </span>
+                </div>
+                <div className={cn(
+                    "text-4xl font-black text-white font-mono tracking-tighter transition-all duration-300 z-10",
+                    timeLeftIsCritical ? "text-primary text-5xl scale-110 drop-shadow-[0_0_20px_rgba(222,41,41,0.8)]" : "drop-shadow-[0_0_15px_rgba(222,41,41,0.3)]"
+                )}>
+                    {timeLeft}
+                </div>
+                <div className={cn(
+                    "absolute -bottom-4 -right-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors",
+                    timeLeftIsCritical && "bg-primary/30 blur-3xl scale-150"
+                )} />
+             </div>
+        </div>
+      )}
 
       <ConfirmationModal 
           isOpen={showSolutionWarning}

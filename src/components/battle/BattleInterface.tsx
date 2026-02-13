@@ -18,9 +18,10 @@ interface BattleInterfaceProps {
     contestId?: string;
     contestStatus?: "active" | "ended" | "upcoming";
     nextChallengeId?: string | null;
+    endTime?: string | Date; // Added this
 }
 
-export default function BattleInterface({ challengeId, contestId, contestStatus, nextChallengeId }: BattleInterfaceProps) {
+export default function BattleInterface({ challengeId, contestId, contestStatus, nextChallengeId, endTime }: BattleInterfaceProps) {
   const { user } = useUser();
 
   const battle = useBattle(challengeId, user, contestId);
@@ -46,11 +47,11 @@ export default function BattleInterface({ challengeId, contestId, contestStatus,
         {/* Editor Area */}
         <div className={cn("hidden h-full flex-col lg:flex", activeTab === "editor" && "flex")}>
           <BattleEditor
-             code={battle.code}
-             elapsedTime={battle.elapsedTime}
-             formatTime={battle.formatTime}
-             onCodeChange={battle.handleCodeChange}
-             onReset={battle.resetCode}
+            code={battle.code}
+            elapsedTime={battle.elapsedTime}
+            formatTime={battle.formatTime}
+            onCodeChange={battle.handleCodeChange}
+            onReset={battle.resetCode}
           />
         </div>
 
@@ -67,6 +68,7 @@ export default function BattleInterface({ challengeId, contestId, contestStatus,
             onUnlockSolutions={battle.markAsUnlocked}
             contestId={contestId}
             contestStatus={contestStatus}
+            endTime={endTime}
           />
         </div>
 

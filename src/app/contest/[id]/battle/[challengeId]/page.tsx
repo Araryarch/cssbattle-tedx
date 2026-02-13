@@ -25,5 +25,11 @@ export default function ContestBattlePage() {
       : null;
   const nextChallengeId = nextChallenge?.id;
 
-  return <BattleInterface challengeId={challengeId} contestId={contestId} contestStatus={contestStatus} nextChallengeId={nextChallengeId} />;
+  return <BattleInterface 
+    challengeId={challengeId} 
+    contestId={contestId} 
+    contestStatus={contestStatus} 
+    nextChallengeId={nextChallengeId} 
+    endTime={contest?.endTime}
+  />;
 }
