@@ -62,10 +62,13 @@ export default function BattleRight({ challenge, unlockedTips, onUnlockTip }: Ba
              <div className="space-y-2">
                 {challenge.tips.map((tip, idx) => {
                   const isUnlocked = unlockedTips.includes(idx);
+                  // Safety check for non-string tips (e.g. database migration legacy)
+                  const tipText = typeof tip === 'string' ? tip : typeof tip === 'object' ? (tip as any).content || (tip as any).text || JSON.stringify(tip) : String(tip);
+                  
                   return (
                     <div key={idx} className="bg-zinc-900 border border-white/10 rounded p-2">
                       {isUnlocked ? (
-                        <p className="text-[11px] text-zinc-300 font-mono leading-snug">{tip}</p>
+                        <p className="text-[11px] text-zinc-300 font-mono leading-snug">{tipText}</p>
                       ) : (
                         <button
                           onClick={() => {
@@ -93,16 +96,19 @@ export default function BattleRight({ challenge, unlockedTips, onUnlockTip }: Ba
              </div>
              
              <div className="flex flex-wrap gap-2">
-                {(challenge?.colors || []).map((color, idx) => (
-                    <button
-                        key={idx}
-                        onClick={() => copyColor(color)}
-                        className="group flex items-center gap-2 bg-zinc-900 border border-white/10 rounded-full pl-1 pr-3 py-1 hover:border-white/30 transition-all active:scale-95"
-                    >
-                        <div className="w-4 h-4 rounded-full border border-white/10" style={{ backgroundColor: color }} />
-                        <span className="text-[11px] font-mono text-zinc-400 group-hover:text-white transition-colors">{color}</span>
-                    </button>
-                ))}
+                {(challenge?.colors || []).map((color, idx) => {
+                    const colorStr = typeof color === 'string' ? color : (color as any).value || (color as any).color || '#000000';
+                    return (
+                        <button
+                            key={idx}
+                            onClick={() => copyColor(colorStr)}
+                            className="group flex items-center gap-2 bg-zinc-900 border border-white/10 rounded-full pl-1 pr-3 py-1 hover:border-white/30 transition-all active:scale-95"
+                        >
+                            <div className="w-4 h-4 rounded-full border border-white/10" style={{ backgroundColor: colorStr }} />
+                            <span className="text-[11px] font-mono text-zinc-400 group-hover:text-white transition-colors">{colorStr}</span>
+                        </button>
+                    );
+                })}
             </div>
         </div>
         

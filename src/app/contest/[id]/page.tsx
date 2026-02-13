@@ -1,7 +1,6 @@
 "use client";
 
 import { useContest } from "@/lib/hooks";
-import Header from "@/components/Header";
 import Link from "next/link";
 import { Calendar, Clock, Trophy, ArrowLeft, Play, Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -23,7 +22,6 @@ export default function ContestDetailsPage() {
   if (isError || !contest) {
     return (
       <div className="min-h-screen bg-black text-white">
-        <Header />
         <main className="pt-24 pb-20 px-6">
           <div className="max-w-7xl mx-auto text-center py-20">
             <h1 className="text-3xl font-bold text-zinc-500 mb-4">Contest Not Found</h1>
@@ -47,7 +45,6 @@ export default function ContestDetailsPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <Header />
       
       <main className="pt-24 pb-20 px-6">
         <div className="max-w-7xl mx-auto space-y-12">
@@ -116,30 +113,10 @@ export default function ContestDetailsPage() {
                                 href={`/battle/${challenge.id}?contestId=${contest.id}`}
                                 className="group block"
                              >
-                                <div className="bg-zinc-900/40 border border-white/5 rounded-2xl p-1 group-hover:bg-zinc-900 group-hover:border-primary/50 transition-all duration-300">
-                                    <div className="aspect-[4/3] rounded-xl overflow-hidden bg-black relative mb-4">
-                                        {challenge.targetCode ? (
-                                            <iframe 
-                                                srcDoc={`<!DOCTYPE html><html><head><style>body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;zoom:0.25;}</style></head><body>${challenge.targetCode}</body></html>`}
-                                                className="w-full h-full border-none pointer-events-none"
-                                                tabIndex={-1}
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-zinc-700 font-mono text-sm">
-                                                No Preview
-                                            </div>
-                                        )}
-                                        
-                                        <div className="absolute inset-0 bg-black/50 group-hover:bg-transparent transition-colors" />
-                                        
-                                        <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">
-                                            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-lg text-white">
-                                                <Play className="w-4 h-4 ml-1" />
-                                            </div>
-                                        </div>
-                                    </div>
+                                <div className="bg-zinc-900/40 border border-white/5 rounded-2xl overflow-hidden group-hover:bg-zinc-900 group-hover:border-primary/50 transition-all duration-300">
+                                    <ChallengePreview challenge={challenge} />
                                     
-                                    <div className="px-4 pb-4">
+                                    <div className="px-4 pb-4 pt-4">
                                         <div className="flex justify-between items-start mb-2">
                                             <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
                                                 {index + 1}. {challenge.title}
@@ -164,4 +141,61 @@ export default function ContestDetailsPage() {
       </main>
     </div>
   );
+}
+
+import { useState, useRef, useEffect } from "react";
+
+function ChallengePreview({ challenge }: { challenge: any }) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scale, setScale] = useState(0.75); // Default scale
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const width = entry.contentRect.width;
+                // Calculate scale to fit 400px content into container width
+                const newScale = width / 400;
+                setScale(newScale);
+            }
+        });
+        
+        observer.observe(containerRef.current);
+        return () => observer.disconnect();
+    }, []);
+
+    return (
+        <div ref={containerRef} className="aspect-[4/3] bg-black relative flex items-center justify-center overflow-hidden border-b border-white/5 group-hover:border-primary/20 transition-colors">
+            {challenge.imageUrl ? (
+                    <img 
+                    src={challenge.imageUrl} 
+                    alt={challenge.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+            ) : challenge.targetCode ? (
+                <div 
+                    className="w-[400px] h-[300px] bg-white origin-top-left pointer-events-none select-none"
+                    style={{ transform: `scale(${scale})` }}
+                >
+                    <iframe 
+                        srcDoc={`<!DOCTYPE html><html><head><style>body,html{margin:0;padding:0;width:400px;height:300px;overflow:hidden;background:white;}</style></head><body>${challenge.targetCode}</body></html>`}
+                        className="w-full h-full border-none"
+                    />
+                </div>
+            ) : (
+                <div className="w-full h-full flex items-center justify-center text-zinc-700 font-mono text-sm">
+                    No Preview
+                </div>
+            )}
+            
+            <div className="absolute inset-0 bg-black/50 group-hover:bg-transparent transition-colors" />
+            
+            <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 z-10">
+                <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-lg text-white">
+                    <Play className="w-4 h-4 ml-1" />
+                </div>
+            </div>
+        </div>
+    );
 }
