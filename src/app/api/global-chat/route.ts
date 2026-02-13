@@ -47,16 +47,24 @@ export async function GET(request: Request) {
         createdAt: globalMessages.createdAt,
         senderName: users.name,
         senderImage: users.image,
+        senderRank: users.rank,
+        senderRole: users.role,
       })
       .from(globalMessages)
       .leftJoin(users, eq(globalMessages.senderId, users.id))
       .orderBy(desc(globalMessages.createdAt))
       .limit(MAX_MESSAGES);
 
+    // Map admin role to "dev" rank
+    const mappedMessages = messages.map(m => ({
+      ...m,
+      senderRank: m.senderRole === "admin" ? "dev" : (m.senderRank || "8flex"),
+    }));
+
     const stream = new ReadableStream({
       start(controller) {
         const encoder = new TextEncoder();
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "init", messages: messages.reverse(), userId })}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "init", messages: mappedMessages.reverse(), userId })}\n\n`));
 
         const interval = setInterval(async () => {
           try {
@@ -66,12 +74,22 @@ export async function GET(request: Request) {
                 senderId: globalMessages.senderId,
                 content: globalMessages.content,
                 createdAt: globalMessages.createdAt,
+                senderName: users.name,
+                senderImage: users.image,
+                senderRank: users.rank,
+                senderRole: users.role,
               })
               .from(globalMessages)
+              .leftJoin(users, eq(globalMessages.senderId, users.id))
               .orderBy(desc(globalMessages.createdAt))
               .limit(50);
 
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "update", messages: latestMessages.reverse() })}\n\n`));
+            const mapped = latestMessages.map(m => ({
+              ...m,
+              senderRank: m.senderRole === "admin" ? "dev" : (m.senderRank || "8flex"),
+            }));
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "update", messages: mapped.reverse() })}\n\n`));
           } catch (e) {
             console.error("SSE error:", e);
           }

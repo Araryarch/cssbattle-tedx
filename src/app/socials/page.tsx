@@ -20,6 +20,7 @@ type GlobalMessage = {
   createdAt: string;
   senderName?: string | null;
   senderImage?: string | null;
+  senderRank?: string | null;
 };
 
 type Friend = {
@@ -421,14 +422,18 @@ export default function SocialsPage() {
                 <div className={`max-w-[70%] ${isOwn ? "text-right" : ""}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-white font-medium text-sm">
-                      {isOwn ? (user?.name || "You") : (msg.senderName || msg.senderName === "" ? msg.senderName : "Unknown")}
+                      {isOwn ? (user?.name || "You") : (msg.senderName || "Unknown")}
+                      {msg.senderRank === "dev" && <span className="ml-1 px-1.5 py-0.5 bg-gradient-to-r from-purple-600 to-pink-600 text-[10px] font-bold rounded">DEV</span>}
+                      {msg.senderRank && msg.senderRank !== "dev" && <span className="text-primary ml-1">- {msg.senderRank}</span>}
                     </span>
                     <span className="text-white/30 text-xs">
                       {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
                     </span>
                   </div>
                   <div className={`inline-block px-4 py-2 rounded-2xl text-sm ${
-                    isOwn ? "bg-primary text-white rounded-br-none" : "bg-white/10 text-white rounded-bl-none"
+                    msg.senderRank === "dev" 
+                      ? "bg-zinc-900 text-white border border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.3)]" 
+                      : isOwn ? "bg-primary text-white" : "bg-white/10 text-white"
                   }`}>
                     {msg.content}
                   </div>
