@@ -793,7 +793,9 @@ export async function getContestUserSubmissionsAction(contestId: string, targetU
             id: challenges.id, 
             title: challenges.title,
             imageUrl: challenges.imageUrl,
-            targetCode: challenges.targetCode 
+            targetCode: challenges.targetCode,
+            description: challenges.description,
+            difficulty: challenges.difficulty 
         })
         .from(contestChallenges)
         .innerJoin(challenges, eq(contestChallenges.challengeId, challenges.id))

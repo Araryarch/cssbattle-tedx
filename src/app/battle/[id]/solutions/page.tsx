@@ -173,6 +173,68 @@ export default function BattleSolutionsPage() {
             </div>
         </div>
 
+        {/* Challenge Details Card */}
+        {challenge && (
+            <div className="bg-[#0a0a0c] border border-white/10 rounded-xl p-6 flex flex-col md:flex-row gap-8 items-start animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
+                <div className="w-full md:w-64 aspect-[4/3] bg-black rounded-lg border border-white/10 overflow-hidden flex-shrink-0 relative group shadow-2xl">
+                     {challenge.imageUrl ? (
+                         <img src={challenge.imageUrl} alt="" className="w-full h-full object-contain" />
+                     ) : (
+                         <div className="w-full h-full flex items-center justify-center text-zinc-600 font-mono text-xs">No Preview</div>
+                     )}
+                     <div className="absolute top-3 left-3 px-2 py-1 bg-black/80 backdrop-blur-md rounded text-[10px] font-bold uppercase tracking-wider text-white border border-white/10 shadow-lg">
+                         Target Output
+                     </div>
+                </div>
+                
+                <div className="flex-1 space-y-5 w-full">
+                     <div>
+                         <div className="flex items-center gap-3 mb-3">
+                             <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest border shadow-sm ${
+                                 challenge.difficulty === 'Easy' ? 'bg-green-500/10 text-green-400 border-green-500/20 shadow-green-900/10' : 
+                                 challenge.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20 shadow-yellow-900/10' : 
+                                 'bg-red-500/10 text-red-500 border-red-500/20 shadow-red-900/10'
+                             }`}>
+                                 {challenge.difficulty}
+                             </span>
+                         </div>
+                         <h2 className="text-2xl font-black text-white mb-3 tracking-tight">{challenge.title}</h2>
+                         <p className="text-zinc-400 leading-relaxed text-sm max-w-2xl">
+                             {challenge.description || "No description provided for this challenge."}
+                         </p>
+                     </div>
+                     
+                     {/* Stats Grid */}
+                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-5 border-t border-white/5 w-full">
+                         <div className="space-y-1">
+                             <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold flex items-center gap-1.5 ">
+                                 <Target className="w-3 h-3" /> Avg Accuracy
+                             </p>
+                             <p className="font-mono font-bold text-white text-lg">{challenge.stats?.avgAccuracy || "0.0"}%</p>
+                         </div>
+                         <div className="space-y-1">
+                             <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold flex items-center gap-1.5">
+                                 <Trophy className="w-3 h-3" /> Top Score
+                             </p>
+                             <p className="font-mono font-bold text-primary text-lg">{challenge.stats?.topScore || "0"}</p>
+                         </div>
+                         <div className="space-y-1">
+                             <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold flex items-center gap-1.5">
+                                 <Code className="w-3 h-3" /> Avg Chars
+                             </p>
+                             <p className="font-mono font-bold text-white text-lg">{challenge.stats?.avgChars || "0"}</p>
+                         </div>
+                         <div className="space-y-1">
+                             <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold flex items-center gap-1.5">
+                                 <Clock className="w-3 h-3" /> Avg Time
+                             </p>
+                             <p className="font-mono font-bold text-white text-lg">{challenge.stats?.avgDuration ? Math.round(challenge.stats.avgDuration / 60) + "m" : "--"}</p>
+                         </div>
+                     </div>
+                </div>
+            </div>
+        )}
+
         {/* Unlock Warning Banner (if authorized but with 0 score/unlocked) - Optional logic */}
         {/* We assume if they are authorized, they either solved it OR unlocked it. */}
 

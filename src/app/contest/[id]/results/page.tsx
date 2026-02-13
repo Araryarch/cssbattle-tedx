@@ -318,23 +318,48 @@ export default function ContestResultsPage() {
                                   ) : userDetails[entry.userId] ? (
                                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                           {userDetails[entry.userId].map((result: any, i: number) => (
-                                              <div key={result.challenge.id} className="bg-zinc-900/50 border border-white/10 rounded-xl overflow-hidden group">
+                                              <div key={result.challenge.id} className="bg-zinc-900/50 border border-white/10 rounded-xl overflow-hidden group flex flex-col h-full">
+                                                  {/* Header: Title & Difficulty */}
                                                   <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
-                                                      <span className="text-xs font-bold truncate max-w-[150px]">{i+1}. {result.challenge.title}</span>
+                                                      <div className="flex items-center gap-2 overflow-hidden">
+                                                          <span className="text-xs font-bold truncate">{i+1}. {result.challenge.title}</span>
+                                                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                                                              result.challenge.difficulty === 'Easy' ? 'bg-green-500/10 text-green-400' :
+                                                              result.challenge.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-400' :
+                                                              'bg-red-500/10 text-red-400'
+                                                          }`}>
+                                                              {result.challenge.difficulty}
+                                                          </span>
+                                                      </div>
                                                       {result.submission ? (
-                                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${Number(result.submission.accuracy) === 100 ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded whitespace-nowrap ${Number(result.submission.accuracy) === 100 ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                                                              {Number(result.submission.accuracy)}% Match
                                                          </span>
                                                       ) : (
-                                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-800 text-zinc-500">
+                                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-800 text-zinc-500 whitespace-nowrap">
                                                               Unsolved
                                                           </span>
                                                       )}
                                                   </div>
                                                   
-                                                  <div className="p-4 space-y-3">
+                                                  <div className="p-4 flex-1 flex flex-col gap-4">
+                                                      {/* Challenge Visual Context */}
+                                                      <div className="flex gap-4">
+                                                          <div className="w-20 h-20 bg-white rounded-lg overflow-hidden border border-white/10 flex-shrink-0 relative">
+                                                              {result.challenge.imageUrl ? (
+                                                                  <img src={result.challenge.imageUrl} alt="" className="w-full h-full object-cover" />
+                                                              ) : (
+                                                                  <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">No Img</div>
+                                                              )}
+                                                          </div>
+                                                          <div className="flex-1 min-w-0">
+                                                              <p className="text-xs text-zinc-400 line-clamp-2 md:line-clamp-3 mb-2">{result.challenge.description || "No description available."}</p>
+                                                          </div>
+                                                      </div>
+
+                                                      {/* Submission Stats */}
                                                       {result.submission ? (
-                                                          <>
+                                                          <div className="mt-auto space-y-3">
                                                             <div className="grid grid-cols-2 gap-2 text-xs">
                                                                 <div className="bg-black/30 p-2 rounded border border-white/5">
                                                                     <div className="text-zinc-500 text-[10px] uppercase">Score</div>
@@ -354,10 +379,10 @@ export default function ContestResultsPage() {
                                                             >
                                                                 <Code className="w-3 h-3" /> View Solution
                                                             </button>
-                                                          </>
+                                                          </div>
                                                       ) : (
-                                                          <div className="py-4 text-center text-zinc-600 text-xs italic">
-                                                              No submission for this challenge
+                                                          <div className="mt-auto py-2 text-center text-zinc-600 text-xs italic bg-zinc-900/30 rounded-lg border border-white/5">
+                                                              No submission recorded
                                                           </div>
                                                       )}
                                                   </div>
