@@ -82,8 +82,11 @@ export async function GET(
                 content: messages.content,
                 isRead: messages.isRead,
                 createdAt: messages.createdAt,
+                senderName: users.name,
+                senderImage: users.image,
               })
               .from(messages)
+              .leftJoin(users, eq(messages.senderId, users.id))
               .where(
                 or(
                   and(eq(messages.senderId, currentUser.id), eq(messages.receiverId, userId)),

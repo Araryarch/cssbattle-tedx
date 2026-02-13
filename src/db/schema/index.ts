@@ -198,3 +198,17 @@ export const globalMessages = pgTable("global_messages", {
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const voiceParticipants = pgTable("voice_participants", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  clanId: text("clan_id")
+    .notNull()
+    .references(() => clans.id, { onDelete: "cascade" }),
+  channelId: text("channel_id").notNull(), // e.g. "General Voice"
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});

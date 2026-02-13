@@ -48,12 +48,7 @@ export default function Navbar() {
             >
               Socials
             </Link>
-            <Link
-              href="/clans"
-              className="text-sm font-medium hover:text-primary transition-colors uppercase tracking-wider"
-            >
-              Clans
-            </Link>
+
             {user?.role === "admin" && (
               <Link
                 href="/admin"

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { clanMessages, clanMembers, users } from "@/db/schema";
+import { clanMessages, clanMembers, users, voiceParticipants } from "@/db/schema";
 import { eq, or, and, desc } from "drizzle-orm";
 import { verifySession } from "@/lib/session";
 import { cookies } from "next/headers";
@@ -55,8 +55,25 @@ export async function GET(
       .limit(50);
 
     const stream = new ReadableStream({
-      start(controller) {
+      async start(controller) {
         const encoder = new TextEncoder();
+
+        const fetchVoiceState = async () => {
+          return await db
+          .select({
+            id: voiceParticipants.id,
+            channelId: voiceParticipants.channelId,
+            userId: users.id,
+            name: users.name,
+            image: users.image,
+          })
+          .from(voiceParticipants)
+          .leftJoin(users, eq(voiceParticipants.userId, users.id))
+          .where(eq(voiceParticipants.clanId, clanId));
+        };
+
+        const initialVoice = await fetchVoiceState();
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "voice-update", participants: initialVoice })}\n\n`));
 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "init", messages: messages.reverse() })}\n\n`));
 
@@ -68,13 +85,19 @@ export async function GET(
                 senderId: clanMessages.senderId,
                 content: clanMessages.content,
                 createdAt: clanMessages.createdAt,
+                senderName: users.name,
+                senderImage: users.image,
               })
               .from(clanMessages)
+              .leftJoin(users, eq(clanMessages.senderId, users.id))
               .where(eq(clanMessages.clanId, clanId))
               .orderBy(desc(clanMessages.createdAt))
               .limit(10);
+            
+            const voiceState = await fetchVoiceState();
 
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "update", messages: latestMessages.reverse() })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "voice-update", participants: voiceState })}\n\n`));
           } catch (error) {
             console.error("SSE error:", error);
           }

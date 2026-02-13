@@ -23,6 +23,7 @@ export async function GET() {
       .select({
         id: friends.id,
         status: friends.status,
+        requesterId: friends.requesterId,
         userId: users.id,
         name: users.name,
         image: users.image,
@@ -40,8 +41,8 @@ export async function GET() {
       ));
 
     const accepted = friendsList.filter(f => f.status === "accepted");
-    const pending = friendsList.filter(f => f.status === "pending" && f.userId !== payload.userId);
-    const incoming = friendsList.filter(f => f.status === "pending" && f.userId === payload.userId);
+    const pending = friendsList.filter(f => f.status === "pending" && f.requesterId === payload.userId);
+    const incoming = friendsList.filter(f => f.status === "pending" && f.requesterId !== payload.userId);
 
     return NextResponse.json({ 
       friends: accepted, 
