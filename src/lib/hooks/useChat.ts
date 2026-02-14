@@ -10,6 +10,7 @@ export type Message = {
   createdAt: string;
   senderName?: string;
   senderImage?: string;
+  isPending?: boolean;
 };
 
 export type Conversation = {
@@ -43,7 +44,7 @@ export function useConversations() {
   return { conversations, isLoading, refetch: fetchConversations };
 }
 
-export function useChat(otherUserId: string | null) {
+export function useChat(otherUserId: string | null, user: any) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -53,9 +54,20 @@ export function useChat(otherUserId: string | null) {
     const eventSource = new EventSource(`/api/chat/${otherUserId}`);
 
     eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "init" || data.type === "update") {
-        setMessages(data.messages);
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "init") {
+          setMessages(data.messages || []);
+        } else if (data.type === "update") {
+          setMessages((prev) => {
+             const existingIds = new Set(prev.map(m => m.id));
+             const newMsgs = data.messages.filter((m: Message) => !existingIds.has(m.id));
+             if (newMsgs.length === 0) return prev;
+             return [...prev, ...newMsgs];
+          });
+        }
+      } catch (e) {
+        console.error("SSE Parse error", e);
       }
     };
 
@@ -77,13 +89,46 @@ export function useChat(otherUserId: string | null) {
   const sendMessage = async (content: string) => {
     if (!otherUserId || !content.trim()) return;
 
+    // 1. Optimistic Update
+    const tempId = crypto.randomUUID();
+    const optimisticMsg: Message = {
+      id: tempId,
+      senderId: user.id,
+      receiverId: otherUserId,
+      content,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      senderName: user.name,
+      senderImage: user.image,
+      isPending: true,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+
     try {
-      await api.post("/chat", {
+      // 2. Server Request
+      const res = await api.post("/chat", {
         receiverId: otherUserId,
         content: content.trim(),
       });
+      const realMsg = res.data.message;
+
+      // 3. Reconciliation
+      setMessages((prev) => {
+         const alreadyExists = prev.some((m) => m.id === realMsg.id);
+         if (alreadyExists) {
+             return prev.filter((m) => m.id !== tempId);
+         }
+         return prev.map((m) => 
+            m.id === tempId 
+             ? { ...realMsg, senderName: user.name, senderImage: user.image }
+             : m
+         );
+      });
+
     } catch (error) {
       console.error("Failed to send message:", error);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
   };
 

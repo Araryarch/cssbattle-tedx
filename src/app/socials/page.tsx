@@ -42,8 +42,8 @@ export default function SocialsPage() {
   
   // Interact
   const globalChat = useGlobalChat(user);
-  const clanChat = useClanChat(activeServerId !== "home" ? activeServerId : null);
-  const dmChat = useChat(activeServerId === "home" && !['friends','pending','add','global'].includes(activeChannelId) ? activeChannelId : null);
+  const clanChat = useClanChat(activeServerId !== "home" ? activeServerId : null, user);
+  const dmChat = useChat(activeServerId === "home" && !['friends','pending','add','global'].includes(activeChannelId) ? activeChannelId : null, user);
 
   const activeClan = clans.find(c => c.id === activeServerId);
 
