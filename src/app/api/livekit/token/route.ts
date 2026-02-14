@@ -28,9 +28,17 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const at = new AccessToken(apiKey, apiSecret, { identity: username });
+  const image = req.nextUrl.searchParams.get("image");
+
+  const at = new AccessToken(apiKey, apiSecret, { 
+    identity: username,
+    metadata: JSON.stringify({ image })
+  });
 
   at.addGrant({ room, roomJoin: true, canPublish: true, canSubscribe: true });
 
-  return NextResponse.json({ token: await at.toJwt() });
+  return NextResponse.json({ 
+    token: await at.toJwt(),
+    serverUrl: wsUrl 
+  });
 }

@@ -3,12 +3,12 @@ import {
   RoomAudioRenderer,
   useParticipants,
   useLocalParticipant,
-  useTracks,
+  useConnectionState,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, Participant, LocalParticipant, RemoteParticipant, ParticipantEvent } from "livekit-client";
-import { useEffect, useState, useMemo } from "react";
-import { PhoneOff, Loader2, Mic, Video, VideoOff, MessageSquare, Volume2 } from "lucide-react";
+import { Track, Participant, LocalParticipant, ParticipantEvent, ConnectionState } from "livekit-client";
+import { useEffect, useState, memo } from "react";
+import { PhoneOff, Loader2, Mic, MessageSquare, Volume2, WifiOff } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
 
 interface VoiceStageProps {
@@ -20,38 +20,43 @@ interface VoiceStageProps {
 
 export const VoiceStage = ({ channelId, user, onLeave }: VoiceStageProps) => {
   const [token, setToken] = useState("");
+  const [serverUrl, setServerUrl] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
         const resp = await fetch(
-          `/api/livekit/token?room=${channelId}&username=${user.name}`
+          `/api/livekit/token?room=${channelId}&username=${user.name}&image=${encodeURIComponent(user.image || "")}`
         );
         const data = await resp.json();
         setToken(data.token);
+        setServerUrl(data.serverUrl || process.env.NEXT_PUBLIC_LIVEKIT_URL);
       } catch (e) {
-        console.error(e);
+        console.error("Failed to fetch token:", e);
       }
     })();
-  }, [channelId, user.name]);
+  }, [channelId, user.name, user.image]);
 
-  if (token === "") {
+  if (!token || !serverUrl) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-black text-white">
+      <div className="flex-1 flex items-center justify-center bg-black text-white gap-2">
         <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
+        <span className="text-zinc-500 text-sm">Initializing connection...</span>
       </div>
     );
   }
 
   return (
     <LiveKitRoom
-      video={false}
-      audio={true}
+      video={false} 
+      audio={false}
       token={token}
-      serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
+      serverUrl={serverUrl}
       data-lk-theme="default"
+      connect={true}
       style={{ height: "100%", background: "black" }}
       onDisconnected={onLeave}
+      onError={(e) => console.error("LiveKit Error:", e)}
     >
       <CustomVoiceStage channelId={channelId} onLeave={onLeave} />
       <RoomAudioRenderer />
@@ -61,8 +66,28 @@ export const VoiceStage = ({ channelId, user, onLeave }: VoiceStageProps) => {
 
 function CustomVoiceStage({ channelId, onLeave }: { channelId: string; onLeave: () => void }) {
   const participants = useParticipants();
+  const connectionState = useConnectionState();
   
   const gridClass = participants.length <= 1 ? "grid-cols-1" : participants.length <= 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-2 md:grid-cols-3";
+
+  if (connectionState === ConnectionState.Connecting) {
+     return (
+        <div className="flex-1 flex flex-col items-center justify-center bg-black text-white gap-4">
+           <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+           <p className="font-mono text-zinc-400">Connecting to server...</p>
+        </div>
+     );
+  }
+
+  if (connectionState === ConnectionState.Disconnected) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center bg-black text-white gap-4">
+           <WifiOff className="w-8 h-8 text-red-500" />
+           <p className="font-mono text-zinc-400">Disconnected</p>
+           <button onClick={onLeave} className="px-4 py-2 bg-zinc-800 rounded hover:bg-zinc-700">Go Back</button>
+        </div>
+      );
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-black h-full relative overflow-hidden">
@@ -71,7 +96,11 @@ function CustomVoiceStage({ channelId, onLeave }: { channelId: string; onLeave: 
             <div className="flex items-center gap-2 pointer-events-auto">
             <Volume2 className="w-5 h-5 text-white" />
             <span className="font-mono font-bold text-white uppercase tracking-wider">{channelId}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${connectionState === ConnectionState.Connected ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                {connectionState}
+            </span>
             </div>
+            {/* ... rest of top bar */}
             <div className="pointer-events-auto">
             <button className="p-2 bg-black/50 border border-white/10 text-white rounded hover:bg-white/10">
                 <MessageSquare className="w-5 h-5" />
@@ -93,69 +122,74 @@ function CustomVoiceStage({ channelId, onLeave }: { channelId: string; onLeave: 
   );
 }
 
-function ParticipantItem({ participant }: { participant: Participant }) {
-  // Use useTracks to subscribe to updates for this participant
-  const videoTracks = useTracks([Track.Source.Camera]);
-  const audioTracks = useTracks([Track.Source.Microphone]);
+const ParticipantItem = memo(({ participant }: { participant: Participant }) => {
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
 
-  const videoTrackRef = useMemo(() => 
-    videoTracks.find(t => t.participant.sid === participant.sid), 
-  [videoTracks, participant.sid]);
-
-  const audioTrackRef = useMemo(() => 
-    audioTracks.find(t => t.participant.sid === participant.sid), 
-  [audioTracks, participant.sid]);
-
-  // Force re-render on speaking updates
-  const [isSpeaking, setIsSpeaking] = useState(participant.isSpeaking);
-  
+  // Subscribe to track events
   useEffect(() => {
-    const onSpeakingChanged = (speaking: boolean) => setIsSpeaking(speaking);
-    participant.on(ParticipantEvent.IsSpeakingChanged, onSpeakingChanged);
-    return () => {
-        participant.off(ParticipantEvent.IsSpeakingChanged, onSpeakingChanged);
+    const updateTracks = () => {
+        const aPub = participant.getTrackPublication(Track.Source.Microphone);
+        setIsAudioMuted(aPub?.isMuted ?? true);
+        
+        // Parse metadata for avatar
+        if (participant.metadata) {
+            try {
+                const metadata = JSON.parse(participant.metadata);
+                if (metadata.image) setAvatarUrl(metadata.image);
+            } catch (e) {
+                console.error("Failed to parse metadata", e);
+            }
+        }
     };
-  }, [participant]);
 
-  const isVideoActive = !!videoTrackRef && !videoTrackRef.publication.isMuted;
-  const isAudioMuted = !audioTrackRef || audioTrackRef.publication.isMuted;
+    updateTracks();
+
+    const onTrackChanged = () => updateTracks();
+    const onMetadataChanged = () => updateTracks();
+    
+    // Listen to all relevant events
+    participant.on(ParticipantEvent.TrackPublished, onTrackChanged);
+    participant.on(ParticipantEvent.TrackUnpublished, onTrackChanged);
+    participant.on(ParticipantEvent.TrackSubscribed, onTrackChanged);
+    participant.on(ParticipantEvent.TrackUnsubscribed, onTrackChanged);
+    participant.on(ParticipantEvent.TrackMuted, onTrackChanged);
+    participant.on(ParticipantEvent.TrackUnmuted, onTrackChanged);
+    participant.on(ParticipantEvent.ParticipantMetadataChanged, onMetadataChanged); // Listen for metadata updates
+
+    return () => {
+        participant.off(ParticipantEvent.TrackPublished, onTrackChanged);
+        participant.off(ParticipantEvent.TrackUnpublished, onTrackChanged);
+        participant.off(ParticipantEvent.TrackSubscribed, onTrackChanged);
+        participant.off(ParticipantEvent.TrackUnsubscribed, onTrackChanged);
+        participant.off(ParticipantEvent.TrackMuted, onTrackChanged);
+        participant.off(ParticipantEvent.TrackUnmuted, onTrackChanged);
+        participant.off(ParticipantEvent.ParticipantMetadataChanged, onMetadataChanged);
+    };
+  }, [participant, participant.metadata]);
+
   const isLocal = participant instanceof LocalParticipant;
   const connectionQuality = participant.connectionQuality; 
 
   return (
-    <div className={`w-full max-w-5xl h-full mx-auto aspect-video bg-zinc-900 border transition-colors duration-200 relative group flex items-center justify-center overflow-hidden ${isSpeaking && !isAudioMuted ? 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'border-white/10'}`}>
+    <div className="w-full max-w-5xl h-full mx-auto aspect-video bg-zinc-900 border border-white/10 transition-colors duration-200 relative group flex items-center justify-center overflow-hidden">
+        <SpeakingIndicator participant={participant} isAudioMuted={isAudioMuted} />
+
         {/* Background */}
         <div className="absolute inset-0 bg-zinc-800" />
         
-        {/* Media Element (Video) */}
-        {isVideoActive && videoTrackRef?.publication.track && (
-            <video 
-                className={`absolute inset-0 w-full h-full object-cover z-20 ${isLocal ? 'transform scale-x-[-1]' : ''}`} 
-                ref={el => {
-                    if (el) {
-                        el.srcObject = new MediaStream([videoTrackRef.publication.track!.mediaStreamTrack]);
-                        el.play().catch(e => console.error("Video play error", e));
-                    }
-                }}
-                muted={true} 
-                playsInline
-            />
-        )}
-        
-        {/* Fallback Avatar */}
-        {(!isVideoActive) && (
-            <div className="relative z-10 flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
-                <div className={`relative rounded-full p-1 transition-all duration-200 ${isSpeaking && !isAudioMuted ? 'scale-110' : 'scale-100'}`}>
-                    <div className={`absolute inset-0 rounded-full animate-pulse ${isSpeaking && !isAudioMuted ? 'bg-purple-500/50' : 'bg-transparent'}`} />
-                    <UserAvatar src={undefined} name={participant.identity || "User"} className={`w-24 h-24 border-4 ${isSpeaking && !isAudioMuted ? 'border-purple-500' : 'border-zinc-900'}`} fallbackClassName="text-2xl" />
-                </div>
+        {/* Fallback Avatar (Always visible now) */}
+        <div className="relative z-10 flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
+            <div className="relative rounded-full p-1 transition-all duration-200 scale-100">
+                    <SpeakingAvatarRing participant={participant} isAudioMuted={isAudioMuted} />
+                <UserAvatar src={avatarUrl} name={participant.identity || "User"} className="w-24 h-24 border-4 border-zinc-900 relative z-10" fallbackClassName="text-2xl" />
             </div>
-        )}
+        </div>
 
         {/* Status Pill */}
         <div className="absolute bottom-4 left-4 z-30 bg-black/60 backdrop-blur px-3 py-1 rounded-full border border-white/10 flex items-center gap-2">
-            {isAudioMuted ? <Mic className="w-3 h-3 text-red-500" /> : isSpeaking ? <Mic className="w-3 h-3 text-purple-500 animate-pulse" /> : <Mic className="w-3 h-3 text-zinc-500" />}
-            <span className={`font-mono font-bold text-sm ${isSpeaking && !isAudioMuted ? 'text-purple-400' : 'text-white'}`}>
+            {isAudioMuted ? <Mic className="w-3 h-3 text-red-500" /> : <SpeakingMicIcon participant={participant} />}
+            <span className="font-mono font-bold text-sm text-white">
                 {participant.identity} {isLocal ? "(You)" : ""}
             </span>
         </div>
@@ -171,42 +205,69 @@ function ParticipantItem({ participant }: { participant: Participant }) {
         )}
     </div>
   );
+});
+
+function SpeakingIndicator({ participant, isAudioMuted }: { participant: Participant, isAudioMuted: boolean }) {
+    const [isSpeaking, setIsSpeaking] = useState(participant.isSpeaking);
+    useEffect(() => {
+        const onSpeakingChanged = (speaking: boolean) => setIsSpeaking(speaking);
+        participant.on(ParticipantEvent.IsSpeakingChanged, onSpeakingChanged);
+        return () => { participant.off(ParticipantEvent.IsSpeakingChanged, onSpeakingChanged); };
+    }, [participant]);
+
+    if (!isSpeaking || isAudioMuted) return null;
+    return <div className="absolute inset-0 border-2 border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.3)] z-30 pointer-events-none" />;
+}
+
+function SpeakingAvatarRing({ participant, isAudioMuted }: { participant: Participant, isAudioMuted: boolean }) {
+    const [isSpeaking, setIsSpeaking] = useState(participant.isSpeaking);
+    useEffect(() => {
+        const onSpeakingChanged = (speaking: boolean) => setIsSpeaking(speaking);
+        participant.on(ParticipantEvent.IsSpeakingChanged, onSpeakingChanged);
+        return () => { participant.off(ParticipantEvent.IsSpeakingChanged, onSpeakingChanged); };
+    }, [participant]);
+
+    if (!isSpeaking || isAudioMuted) return null;
+    return <div className="absolute inset-0 rounded-full animate-pulse bg-purple-500/50 scale-110 z-0" />;
+}
+
+function SpeakingMicIcon({ participant }: { participant: Participant }) {
+    const [isSpeaking, setIsSpeaking] = useState(participant.isSpeaking);
+    useEffect(() => {
+        const onSpeakingChanged = (speaking: boolean) => setIsSpeaking(speaking);
+        participant.on(ParticipantEvent.IsSpeakingChanged, onSpeakingChanged);
+        return () => { participant.off(ParticipantEvent.IsSpeakingChanged, onSpeakingChanged); };
+    }, [participant]);
+
+    return isSpeaking ? <Mic className="w-3 h-3 text-purple-500 animate-pulse" /> : <Mic className="w-3 h-3 text-zinc-500" />;
 }
 
 function CustomControlBar({ onLeave }: { onLeave: () => void }) {
   const { localParticipant } = useLocalParticipant();
   const [isMuted, setIsMuted] = useState(false);
-  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
 
   useEffect(() => {
     if (localParticipant) {
       setIsMuted(!localParticipant.isMicrophoneEnabled);
-      setIsVideoEnabled(localParticipant.isCameraEnabled);
     }
-  }, [localParticipant, localParticipant?.isMicrophoneEnabled, localParticipant?.isCameraEnabled]);
+  }, [localParticipant, localParticipant?.isMicrophoneEnabled]);
 
 
   const toggleMic = async () => {
     if (!localParticipant) return;
-    const enabled = localParticipant.isMicrophoneEnabled;
-    await localParticipant.setMicrophoneEnabled(!enabled);
-    setIsMuted(enabled); // Optimistic
-  };
-
-  const toggleVideo = async () => {
-    if (!localParticipant) return;
-    const enabled = localParticipant.isCameraEnabled;
-    await localParticipant.setCameraEnabled(!enabled);
-    setIsVideoEnabled(!enabled);
+    try {
+      const enabled = localParticipant.isMicrophoneEnabled;
+      await localParticipant.setMicrophoneEnabled(!enabled);
+      setIsMuted(enabled); 
+    } catch (e) {
+      console.error("Error toggling mic:", e);
+    }
   };
 
   return (
     <div className="h-20 bg-black border-t border-white/10 flex items-center justify-center gap-4 relative z-20">
         <button onClick={toggleMic} className={`p-4 rounded-full ${isMuted ? 'bg-red-500 text-white' : 'bg-zinc-800 text-white hover:bg-zinc-700'} transition-colors`}>
             {isMuted ? <PhoneOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-        </button>
-        <button onClick={toggleVideo} className={`p-4 rounded-full ${isVideoEnabled ? 'bg-white text-black' : 'bg-zinc-800 text-white hover:bg-zinc-700'} transition-colors`}>
-            {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
         </button>
         <div className="w-px h-8 bg-zinc-800 mx-2" />
         <button onClick={onLeave} className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full font-mono font-bold uppercase text-sm flex items-center gap-2">
