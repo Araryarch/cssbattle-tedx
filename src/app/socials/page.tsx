@@ -48,33 +48,7 @@ export default function SocialsPage() {
   const activeClan = clans.find(c => c.id === activeServerId);
 
   // Voice State
-  const [voiceParticipants, setVoiceParticipants] = useState<any[]>([]);
-  const [voiceSignals, setVoiceSignals] = useState<any[]>([]); // New state for WebRTC signals
   const [connectedVoiceChannelId, setConnectedVoiceChannelId] = useState<string | null>(null);
-
-  // Listen for voice updates from clan SSE
-  useEffect(() => {
-    if (activeServerId === "home") return;
-    setVoiceSignals([]); // Clear signals on switch
-    
-    const eventSource = new EventSource(`/api/clans/${activeServerId}`);
-    
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "voice-update") {
-           setVoiceParticipants(data.participants || []);
-        } else if (data.type === "voice-signal") {
-           // Queue new signals
-           setVoiceSignals(prev => [...prev, ...data.signals]);
-        }
-      } catch (e) {
-        // ignore
-      }
-    };
-    
-    return () => eventSource.close();
-  }, [activeServerId]);
 
   const joinVoice = async (channelId: string) => {
      try {
@@ -139,7 +113,7 @@ export default function SocialsPage() {
   };
 
   const handleChannelSwitch = (channelId: string) => {
-    // If it's a voice channel, join it
+    // This is a placeholder. I will update useClans.ts first. channel, join it
     if (['General Voice', 'Gaming', 'Lobby'].includes(channelId)) {
         joinVoice(channelId);
     } 
@@ -191,7 +165,7 @@ export default function SocialsPage() {
         conversations={conversations}
         mobileSidebarOpen={mobileSidebarOpen}
         user={user}
-        voiceParticipants={voiceParticipants}
+        voiceParticipants={clanChat.participants}
         joinVoice={joinVoice}
         leaveVoice={leaveVoice}
         connectedVoiceChannelId={connectedVoiceChannelId}
@@ -236,11 +210,8 @@ export default function SocialsPage() {
            <VoiceStage 
              channelId={activeChannelId} 
              clanId={activeServerId}
-             participants={voiceParticipants.filter(p => p.channelId === activeChannelId)} 
              user={user}
              onLeave={leaveVoice}
-             signals={voiceSignals} // Pass signals
-             setSignals={setVoiceSignals} // Allow clearing
            />
         ) : currentChat ? (
           /* CHAT INTERFACE */

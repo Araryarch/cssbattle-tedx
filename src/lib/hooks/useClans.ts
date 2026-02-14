@@ -75,6 +75,7 @@ export function useClans() {
 
 export function useClanChat(clanId: string | null, user: any) {
   const [messages, setMessages] = useState<ClanMessage[]>([]);
+  const [participants, setParticipants] = useState<any[]>([]); // Voice participants
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
@@ -87,6 +88,7 @@ export function useClanChat(clanId: string | null, user: any) {
         const data = JSON.parse(event.data);
         if (data.type === "init") {
           setMessages(data.messages || []);
+          if (data.participants) setParticipants(data.participants); // Init participants too if available
         } else if (data.type === "update") {
           setMessages((prev) => {
              const existingIds = new Set(prev.map(m => m.id));
@@ -94,6 +96,8 @@ export function useClanChat(clanId: string | null, user: any) {
              if (newMsgs.length === 0) return prev;
              return [...prev, ...newMsgs];
           });
+        } else if (data.type === "voice-update") {
+           setParticipants(data.participants || []);
         }
       } catch (e) {
         console.error("SSE Parse error", e);
@@ -159,5 +163,5 @@ export function useClanChat(clanId: string | null, user: any) {
     }
   };
 
-  return { messages, isConnected, sendMessage };
+  return { messages, isConnected, sendMessage, participants };
 }
