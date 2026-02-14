@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 
 const publicRoutes = ["/login", "/register", "/verify", "/api/auth"];
 
 export default async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
   
-  // Skip static files
+  // Skip static files and Next.js internals
   if (
     path.startsWith("/_next") ||
     path.startsWith("/static") ||
-    path.includes(".")
+    path.includes(".") ||
+    path.startsWith("/favicon")
   ) {
     return NextResponse.next();
   }
@@ -20,26 +20,20 @@ export default async function middleware(req: NextRequest) {
     path === route || path.startsWith(route + "/")
   );
 
+  // Better Auth session cookie names
+  const sessionToken = req.cookies.get("better-auth.session_token")?.value;
+  const hasSession = !!sessionToken;
+
   if (isPublicRoute) {
     // If already logged in and visiting /login, redirect to home
-    if (path === "/login") {
-      const session = await auth.api.getSession({
-        headers: { cookie: req.headers.get("cookie") || "" }
-      });
-      
-      if (session) {
-        return NextResponse.redirect(new URL("/", req.nextUrl));
-      }
+    if (path === "/login" && hasSession) {
+      return NextResponse.redirect(new URL("/", req.nextUrl));
     }
     return NextResponse.next();
   }
 
-  // For protected routes, verify session using better-auth
-  const session = await auth.api.getSession({
-    headers: { cookie: req.headers.get("cookie") || "" }
-  });
-
-  if (!session) {
+  // For protected routes, redirect to login if no session
+  if (!hasSession) {
     const loginUrl = new URL("/login", req.nextUrl);
     loginUrl.searchParams.set("redirect", path);
     return NextResponse.redirect(loginUrl);
