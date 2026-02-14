@@ -31,10 +31,10 @@ export default function Chat({ receiverId, receiverName }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { conversations, refetch: refetchConvos } = useConversations();
-  const { messages, sendMessage } = useChat(selectedUserId);
+  const { messages, sendMessage } = useChat(selectedUserId, user);
   const { friends, pendingRequests, incomingRequests, sendRequest, respondToRequest, refetch: refetchFriends } = useFriends();
   const { clans, createClan, joinClan, leaveClan, refetch: refetchClans } = useClans();
-  const { messages: clanMessages, sendMessage: sendClanMessage } = useClanChat(selectedClanId);
+  const { messages: clanMessages, sendMessage: sendClanMessage } = useClanChat(selectedClanId, user);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

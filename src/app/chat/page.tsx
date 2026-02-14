@@ -15,7 +15,7 @@ export default function ChatPage() {
   const [showConversations, setShowConversations] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { messages, sendMessage } = useChat(selectedUserId);
+  const { messages, sendMessage } = useChat(selectedUserId, user);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
