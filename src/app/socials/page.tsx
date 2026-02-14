@@ -138,7 +138,20 @@ export default function SocialsPage() {
   const [friendSearch, setFriendSearch] = useState("");
   const [friendSearchResults, setFriendSearchResults] = useState<any[]>([]);
 
-  if (!user) return <div className="flex h-screen items-center justify-center bg-black text-white font-mono">ACCESS DENIED. PLEASE AUTHENTICATE.</div>;
+  // Server-side redirect for unauthenticated users
+  if (!user) {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white font-mono">
+        <div className="text-center">
+          <p className="text-zinc-500 mb-4">Please sign in to access social features.</p>
+          <a href="/login" className="text-primary hover:underline">Go to Login →</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-black font-sans text-zinc-100">

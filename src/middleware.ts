@@ -58,12 +58,6 @@ export default async function middleware(req: NextRequest) {
     // Allowing request to proceed; /admin Layout must handle role verification.
   }
 
-  // Explicitly ALLOW /socials to proceed
-  if (path.startsWith("/socials")) {
-      console.log(`Middleware: Explicitly allowing /socials`);
-      return NextResponse.next();
-  }
-
   return NextResponse.next();
 }
 
