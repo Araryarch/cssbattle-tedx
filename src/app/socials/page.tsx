@@ -22,6 +22,7 @@ import { CreateClanModal } from "./components/CreateClanModal";
 import { ClanBrowser } from "./components/browser/ClanBrowser";
 
 export default function SocialsPage() {
+  console.log("[DEBUG] SocialsPage mounted");
   const { user } = useUser();
   const searchParams = useSearchParams();
   const initialChatId = searchParams.get("chat");
