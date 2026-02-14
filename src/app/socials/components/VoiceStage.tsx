@@ -6,7 +6,7 @@ import {
   useTracks,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, Participant, LocalParticipant, RemoteParticipant } from "livekit-client";
+import { Track, Participant, LocalParticipant, RemoteParticipant, ParticipantEvent } from "livekit-client";
 import { useEffect, useState, useMemo } from "react";
 import { PhoneOff, Loader2, Mic, Video, VideoOff, MessageSquare, Volume2 } from "lucide-react";
 import { UserAvatar } from "./UserAvatar";
@@ -111,9 +111,9 @@ function ParticipantItem({ participant }: { participant: Participant }) {
   
   useEffect(() => {
     const onSpeakingChanged = (speaking: boolean) => setIsSpeaking(speaking);
-    participant.on("speakingChanged", onSpeakingChanged);
+    participant.on(ParticipantEvent.IsSpeakingChanged, onSpeakingChanged);
     return () => {
-        participant.off("speakingChanged", onSpeakingChanged);
+        participant.off(ParticipantEvent.IsSpeakingChanged, onSpeakingChanged);
     };
   }, [participant]);
 
