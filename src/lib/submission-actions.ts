@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { submissions, users, challenges, contests, contestChallenges, comments, unlockedSolutions, contestParticipants, contestSolutions, contestLeaderboard } from "@/db/schema";
 import { eq, desc, asc, sql, and, gt, inArray, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { verifySession } from "@/lib/session";
 import { updateUserRankAction } from "@/lib/user-actions";
 
@@ -57,9 +56,7 @@ async function hasUserUnlockedChallenge(userId: string, challengeId: string) {
 
 export async function unlockSolutionsAction(challengeId: string) {
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get("auth-token")?.value;
-        const session = await verifySession(token);
+        const session = await verifySession();
 
         if (!session?.userId) return { error: "Unauthorized" };
 
@@ -107,9 +104,7 @@ export async function saveSubmissionAction(data: {
   duration: number; // New field
 }) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
 
     if (!session?.userId) {
       return { error: "Unauthorized" };
@@ -261,9 +256,7 @@ export async function getSubmissionsAction(challengeId: string) {
 // New comprehensive stats fetcher
 export async function getUserChallengeStatsAction(challengeId: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
 
     if (!session?.userId) return null;
 
@@ -315,9 +308,7 @@ export async function getUserChallengeStatsAction(challengeId: string) {
 // Admin: Get All Submissions (paginated)
 export async function getAllSubmissionsAction(page = 1, limit = 50) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
 
     if (!session?.userId || session.role !== "admin") {
       return { data: [], total: 0 };
@@ -613,9 +604,7 @@ export async function getGlobalLeaderboardAction(limit = 100) {
 // Get solutions for a challenge (if solved)
 export async function getChallengeSolutionsAction(challengeId: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
 
     if (!session?.userId) {
        return { authorized: false, solutions: [] };
@@ -697,9 +686,7 @@ export async function getChallengeSolutionsAction(challengeId: string) {
 // Get solutions for a contest challenge (filtered by time and accuracy > 75%)
 export async function getContestSolutionsAction(contestId: string, challengeId: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
 
     if (!session?.userId) {
        return { authorized: false, solutions: [], reason: "Unauthorized" };
@@ -777,9 +764,7 @@ export async function getContestSolutionsAction(contestId: string, challengeId: 
 
 export async function getContestUserSubmissionsAction(contestId: string, targetUserId: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
 
     if (!session?.userId) return { success: false, error: "Unauthorized" };
 

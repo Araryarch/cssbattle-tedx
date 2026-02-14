@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { globalMessages, users } from "@/db/schema";
 import { eq, desc, lt, and } from "drizzle-orm";
 import { verifySession } from "@/lib/session";
-import { cookies } from "next/headers";
 
 const MAX_MESSAGES = 500;
 const CLEANUP_THRESHOLD = 600; // Keep only last 100 messages (clean old ones)
@@ -30,10 +29,7 @@ async function cleanupOldMessages() {
 
 export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-
-    const payload = token ? await verifySession(token) : null;
+    const payload = await verifySession();
     const userId = payload?.userId || null;
 
     // Cleanup old messages periodically
@@ -119,14 +115,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "Please login to chat" }, { status: 401 });
-    }
-
-    const payload = await verifySession(token);
+    const payload = await verifySession();
     if (!payload || !payload.userId) {
       return NextResponse.json({ error: "Please login to chat" }, { status: 401 });
     }

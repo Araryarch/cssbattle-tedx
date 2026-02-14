@@ -3,18 +3,10 @@ import { db } from "@/db";
 import { messages, users, conversations } from "@/db/schema";
 import { eq, desc, or, and } from "drizzle-orm";
 import { verifySession } from "@/lib/session";
-import { cookies } from "next/headers";
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const payload = await verifySession(token);
+    const payload = await verifySession();
     if (!payload || !payload.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -59,14 +51,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const payload = await verifySession(token);
+    const payload = await verifySession();
     if (!payload || !payload.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

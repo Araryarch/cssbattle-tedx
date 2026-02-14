@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { users, submissions, challenges } from "@/db/schema";
 import { eq, desc, sql, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { verifySession } from "@/lib/session";
 import { uploadProfileImage } from "@/lib/storage";
 import { getRankTitle } from "@/lib/utils";
@@ -48,9 +47,7 @@ export async function updateUserRankAction(userId: string) {
 
 export async function getUserDetailsAction() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
     if (!session?.userId) return null;
     
     const [user] = await db.select().from(users).where(eq(users.id, session.userId as string));
@@ -81,9 +78,7 @@ export async function getUserDetailsAction() {
 }
 
 export async function updateUserAction(data: { name?: string; image?: string }) {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
 
     if (!session?.userId) {
         return { error: "Unauthorized" };
@@ -106,9 +101,7 @@ export async function updateUserAction(data: { name?: string; image?: string }) 
 }
 
 export async function uploadAvatarAction(formData: FormData) {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
 
      if (!session?.userId) {
         return { error: "Unauthorized" };
@@ -137,9 +130,7 @@ export async function getUsersAction() {
 
 export async function updateUserVerificationAction(userId: string, isVerified: boolean) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
 
     if (!session?.userId || session.role !== "admin") {
        return { error: "Unauthorized" };
@@ -159,9 +150,7 @@ export async function updateUserVerificationAction(userId: string, isVerified: b
 
 export async function getUserCompletedChallengesAction() {
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get("auth-token")?.value;
-        const session = await verifySession(token);
+        const session = await verifySession();
 
         if (!session?.userId) return [];
 
@@ -196,9 +185,7 @@ export async function getUserCompletedChallengesAction() {
 // Admin: Get users eligible for certificates
 export async function getEligibleCertificateUsersAction() {
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get("auth-token")?.value;
-        const session = await verifySession(token);
+        const session = await verifySession();
 
         if (!session?.userId || session.role !== "admin") {
              return [];

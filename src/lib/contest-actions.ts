@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { contests, contestChallenges, challenges, contestParticipants, users, contestLeaderboard } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { verifySession } from "@/lib/session";
 
 export type Contest = {
@@ -162,9 +161,7 @@ export const endContestAction = stopContestAction;
 
 export async function joinContestAction(contestId: string) {
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get("auth-token")?.value;
-        const session = await verifySession(token);
+        const session = await verifySession();
 
         if (!session?.userId) return { success: false, error: "Unauthorized" };
         const userId = session.userId as string;

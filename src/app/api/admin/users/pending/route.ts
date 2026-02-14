@@ -2,15 +2,11 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { verifySession } from "@/lib/session";
 import { eq } from "drizzle-orm";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 // Cek admin berdasarkan role di tabel user
 async function requireAdmin() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth-token")?.value;
-
-  const payload = await verifySession(token);
+  const payload = await verifySession();
   if (!payload || !payload.userId) {
     return null;
   }

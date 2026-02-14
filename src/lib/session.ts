@@ -17,7 +17,7 @@ export async function signSession(payload: any): Promise<string> {
   return ""; 
 }
 
-export async function verifySession(token?: string): Promise<SessionPayload | null> {
+export async function verifySession(): Promise<SessionPayload | null> {
   try {
     const session = await auth.api.getSession({
         headers: await headers()

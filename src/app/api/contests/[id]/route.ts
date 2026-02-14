@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { contests, challenges, contestChallenges, contestParticipants } from "@/db/schema";
 import { eq, asc, inArray, and } from "drizzle-orm";
-import { cookies } from "next/headers";
 import { verifySession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -18,9 +17,7 @@ export async function GET(
       where: eq(contests.id, contestId),
     });
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
     
     let isJoined = false;
     if (session?.userId) {

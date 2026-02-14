@@ -3,16 +3,11 @@ import { db } from "@/db";
 import { clanMembers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { verifySession } from "@/lib/session";
-import { cookies } from "next/headers";
 import { addSignal } from "@/lib/signal-store";
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const payload = await verifySession(token);
+    const payload = await verifySession();
     if (!payload || !payload.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { clanId, signal, toUserId } = await request.json();

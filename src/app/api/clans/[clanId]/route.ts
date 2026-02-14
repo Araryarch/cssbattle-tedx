@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { clanMessages, clanMembers, users, voiceParticipants } from "@/db/schema";
 import { eq, or, and, desc } from "drizzle-orm";
 import { verifySession } from "@/lib/session";
-import { cookies } from "next/headers";
 import { getSignalsForClan } from "@/lib/signal-store";
 
 export async function GET(
@@ -13,14 +12,7 @@ export async function GET(
   try {
     const { clanId } = await params;
     
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const payload = await verifySession(token);
+    const payload = await verifySession();
     if (!payload || !payload.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -166,14 +158,7 @@ export async function POST(
   try {
     const { clanId: paramClanId } = await params;
     
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const payload = await verifySession(token);
+    const payload = await verifySession();
     if (!payload || !payload.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

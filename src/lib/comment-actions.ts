@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { comments, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { verifySession } from "@/lib/session";
 
 export async function getCommentsAction(submissionId: string) {
@@ -31,9 +30,7 @@ export async function getCommentsAction(submissionId: string) {
 
 export async function postCommentAction(submissionId: string, content: string, parentId?: string) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
-    const session = await verifySession(token);
+    const session = await verifySession();
 
     if (!session?.userId) {
       return { error: "Unauthorized" };
