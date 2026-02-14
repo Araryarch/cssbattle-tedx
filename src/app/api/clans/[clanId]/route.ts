@@ -80,7 +80,14 @@ export async function GET(
 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "init", messages: messages.reverse() })}\n\n`));
 
-        let lastSignalTimestamp = Date.now();
+        // Initialize timestamp from Last-Event-ID (reconnection resume) or current time
+        const lastEventId = request.headers.get("last-event-id");
+        let lastSignalTimestamp = lastEventId ? parseInt(lastEventId) : Date.now();
+        
+        // Safety: If client sends invalid/future timestamp, reset
+        if (isNaN(lastSignalTimestamp) || lastSignalTimestamp > Date.now()) {
+          lastSignalTimestamp = Date.now();
+        }
 
         const interval = setInterval(async () => {
           try {
@@ -102,8 +109,8 @@ export async function GET(
             
             const voiceState = await fetchVoiceState();
 
-
             // Handle Signals (Async DB now)
+            // Use lastSignalTimestamp to fetch ONLY new signals
             const signals = await getSignalsForClan(clanId, lastSignalTimestamp);
             
             const newSignals = signals.filter((s: any) => 
@@ -112,17 +119,25 @@ export async function GET(
             );
 
             if (newSignals.length > 0) {
-               lastSignalTimestamp = Math.max(...newSignals.map((s: any) => s.timestamp));
-               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "voice-signal", signals: newSignals })}\n\n`));
+               // Update timestamp to the latest signal's time
+               const maxTimestamp = Math.max(...newSignals.map((s: any) => s.timestamp));
+               if (maxTimestamp > lastSignalTimestamp) {
+                  lastSignalTimestamp = maxTimestamp;
+               }
+               
+               // Send event WITH ID for auto-reconnect resume
+               controller.enqueue(encoder.encode(`id: ${lastSignalTimestamp}\ndata: ${JSON.stringify({ type: "voice-signal", signals: newSignals })}\n\n`));
             }
 
-
+            // Only send chat/voice updates if we are just pinging or if we want to be chatty
+            // For now, keep sending them but maybe less frequently? 
+            // Actually, let's keep it simple: just send them. Client handles dupes.
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "update", messages: latestMessages.reverse() })}\n\n`));
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "voice-update", participants: voiceState })}\n\n`));
           } catch (error) {
             console.error("SSE error:", error);
           }
-        }, 1000);
+        }, 500); // Poll every 500ms for responsiveness (was 1000ms)
 
         request.signal.addEventListener("abort", () => {
           clearInterval(interval);
