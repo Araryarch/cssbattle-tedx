@@ -1,4 +1,3 @@
-import { verifySession } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 
 // 1. Define public routes that don't need authentication
@@ -14,13 +13,20 @@ export default async function middleware(req: NextRequest) {
   // Debug log to trace requests
   console.log(`Middleware: ${req.method} ${path}`);
 
-  // Make session verification optional/lighter to avoid performance hit on every request if possible
-  const session = await verifySession();
+  // OPTIMISTIC SESSION CHECK (Middleware runs on Edge, no DB access)
+  // We check for the session cookie presence. Actual verification happens in Server Components.
+  // Better Auth default cookie is usually "better-auth.session_token".
+  // supporting potentially "session_token" as well just in case.
+  const sessionCookie = req.cookies.get("better-auth.session_token") || req.cookies.get("session_token");
+  const hasSession = !!sessionCookie?.value;
+
+  // We can't know the role solely from the cookie without decoding/DB.
+  // So we skip role-based redirects in middleware or use a separate unencrypted cookie if available.
+  // For now, we'll assume "user" role in middleware and let Layout/Page handle "admin" protection/redirects.
+  // OR, if we really need role, we could inspect a non-httpOnly cookie if one exists, but for security we shouldn't trust it blindly.
+  // Let's rely on Server Components for strict Admin protection.
   
-  const role =
-    (session && typeof session === "object" && "role" in session
-      ? (session as { role?: string }).role
-      : undefined) as "admin" | "user" | undefined;
+  const role = "user" as string; // Placeholder, real check in page
 
   // Check if the current route is public
   const isPublicRoute = 
@@ -28,7 +34,7 @@ export default async function middleware(req: NextRequest) {
     publicApiRoutes.some((route) => path.startsWith(route));
 
   // If not public and no session, redirect to login
-  if (!isPublicRoute && !session) {
+  if (!isPublicRoute && !hasSession) {
     console.log(`Middleware Redirect: No session for ${path} -> /login`);
     const loginUrl = new URL("/login", req.nextUrl);
     // Optional: Add redirect param to return after login
@@ -37,7 +43,7 @@ export default async function middleware(req: NextRequest) {
   }
 
   // If visiting auth page (login/register) while logged in, redirect to appropriate home
-  if (authRoutes.some(r => path === r) && session) {
+  if (authRoutes.some(r => path === r) && hasSession) {
      const target = role === "admin" ? "/admin" : "/dashboard";
      console.log(`Middleware Redirect: Already logged in, visiting ${path} -> ${target}`);
      return NextResponse.redirect(new URL(target, req.nextUrl));
@@ -45,10 +51,11 @@ export default async function middleware(req: NextRequest) {
 
   // Admin route protection
   if (path.startsWith("/admin")) {
-    if (role !== "admin") {
-      console.log(`Middleware Redirect: User trying to access admin -> /dashboard`);
-      return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
+    if (!hasSession) {
+       return NextResponse.redirect(new URL("/login", req.nextUrl));
     }
+    // Cannot check Role here securely without DB. 
+    // Allowing request to proceed; /admin Layout must handle role verification.
   }
 
   // Explicitly ALLOW /socials to proceed
